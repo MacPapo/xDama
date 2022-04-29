@@ -16,9 +16,8 @@
 *.dylib
 *.dll
 
-# Fortran module files
-*.mod
-*.smod
+# Text files
+*.txt
 
 # Compiled Static libraries
 *.lai
@@ -30,3 +29,9 @@
 *.exe
 *.out
 *.app
+
+# MacOS Staff
+*.DS_Store
+
+# Emacs Staff
+*.ccls-cache

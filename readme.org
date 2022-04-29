@@ -1,0 +1,3 @@
+#+title: xDama project
+
+This is a competitive algorithm for Dama that read from .txt file and output the next move.
