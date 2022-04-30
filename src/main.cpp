@@ -18,8 +18,16 @@ int main( int argc, char** argv )
         cout << "\nInitializing the first board...\t";
         p1.init_board( board_name );
         cout << "Board initialized correctly!" << endl;
+
+        cout << "Trying to load the board...\t";
+        p1.load_board( board_name );
+        cout << "Board loaded correctly!" << endl;
+        p1.load_board( board_name );
+
+        p1.store_board( board_name );
+
     }
-    catch(player_exception)
+    catch( player_exception )
     {
         cout << "Exception..." << endl;
     }

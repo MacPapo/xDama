@@ -9,7 +9,7 @@ using std::string;
 struct player_exception{
 	enum err_type {index_out_of_bounds,missing_file,invalid_board};
 	err_type t;
-	std::string msg;
+	 std::string msg;
 };
 
 class Player{
