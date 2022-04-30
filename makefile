@@ -1,10 +1,21 @@
 .PHONY: clean
 
-# Declaring the compiler
-CC=clang++
+UNAME:=$(shell uname)
+
+
 
 # Declaring the compiler flags for debug and errors
 CFLAGS=-g -std=c++14 -pedantic -Wall -Wextra -Werror -Wshadow -Wconversion -Wunreachable-code
+
+# MacOS flags
+ifeq ($(UNAME), Darwin)
+	CC=clang
+endif
+
+# Linux flags
+ifeq ($(UNAME), Linux)
+	CC=g++
+endif
 
 # Declering the directories
 SRC=src
@@ -15,7 +26,7 @@ BIN=$(BINDIR)/xDama
 SRCS=$(wildcard $(SRC)/*.cpp)
 OBJS=$(patsubst $(SRC)/%.cpp, $(OBJ)/%.o, $(SRCS))
 
-all: clean $(BIN)
+all: clean $(BIN) valgrind
 
 $(BIN): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@
@@ -25,6 +36,9 @@ $(OBJ)/%.o: $(SRC)/%.cpp
 
 clean:
 	$(RM) -r $(BINDIR)/* $(OBJ)/*
+
+valgrind:
+	valgrind --leak-check=full --show-leak-kinds=all -s --track-origins=yes --log-file=valgrind-out.txt ./bin/xDama 1
 
 fly:
 	./$(BIN) 1

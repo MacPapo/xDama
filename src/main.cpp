@@ -15,6 +15,7 @@ int main( int argc, char** argv )
     try
     {
         Player p1( player_nr );
+
         cout << "\nInitializing the first board...\t";
         p1.init_board( board_name );
         cout << "Board initialized correctly!" << endl;
@@ -22,14 +23,21 @@ int main( int argc, char** argv )
         cout << "Trying to load the board...\t";
         p1.load_board( board_name );
         cout << "Board loaded correctly!" << endl;
+
+        board_name = "board_2.txt";
+        p1.load_board( board_name );
+        board_name = "board_3.txt";
+        p1.load_board( board_name );
+        board_name = "board_4.txt";
         p1.load_board( board_name );
 
-        p1.store_board( board_name );
+        //p1.store_board( board_name, 2 );
+         p1.move();
 
     }
-    catch( player_exception )
+    catch( player_exception pe )
     {
-        cout << "Exception..." << endl;
+        cout << "\n\nError type:\t" << pe.t << "\nException...\t" << pe.msg << endl;
     }
 
     

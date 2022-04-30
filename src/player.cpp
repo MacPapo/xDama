@@ -61,33 +61,33 @@ void Player::init_board( const string& filename ) const
 
     initFile.open( filename );
 
-    for( int rows = 0; initFile.good() && rows < ROWS; ++rows )
+    for( int rows = ROWS - 1; initFile.good() && rows >= 0; --rows )
     {
         for( int cols = 0; cols < COLS; ++cols )
         {
             if( rows <= 2 && rows >= 0 ) // print from rows 1 to 3 with o and spaces
             {
-                if( rows % 2 == 0 ) // print rows 1 and 3 with o and spaces
+                if( rows % 2 == 0 ) // print row 7 with x and spaces
+                    ( ( cols % 2 == 0 ) && ( cols % 4 != 0 ) ) ? initFile << 'x' : initFile << ' ';
+
+                else // print rows 6 and 8 with x and spaces
+                    ( cols % 4 == 0 ) ? initFile << 'x' : initFile << ' ';
+            }
+
+            else if( rows <= 7 && rows >= 5 ) // print from rows 6 to 8 with x and spaces
+            {
+                if( rows % 2 != 0 ) // print rows 1 and 3 with o and spaces
                     ( cols % 4 == 0 ) ? initFile << 'o' : initFile << ' ';
 
                 else // print row 2 with o and spaces
                     ( !( cols % 4 == 0 ) && ( cols % 2 == 0 ) ) ? initFile << 'o' : initFile << ' ';
             }
 
-            else if( rows <= 7 && rows >= 5 ) // print from rows 6 to 8 with x and spaces
-            {
-                if( rows % 2 == 0 ) // print row 7 with x and spaces
-                    ( cols % 4 == 0 ) ? initFile << 'x' : initFile << ' ';
-
-                else // print rows 6 and 8 with x and spaces
-                    ( !( cols % 4 == 0 ) && ( cols % 2 == 0 ) ) ? initFile << 'x' : initFile << ' ';
-            }
-
             else // print the rows 4 and 5 with only spaces
                 initFile << ' ';
         }
 
-        if( rows < 7 )
+        if( rows > 0 )
             initFile << std::endl;
     }
 
@@ -99,9 +99,9 @@ void Player::load_board( const string &filename )
     ifstream loadFile;
 
     loadFile.open( filename );
-    if( loadFile.bad() ) throw player_exception{ player_exception::missing_file, "Missing file!..." };
+    if( !loadFile.is_open() ) throw player_exception{ player_exception::missing_file, "Missing file!..." };
 
-    int i = 0;
+    int i = ROWS - 1;
     string str;
     Node newNode = new Cell;
 
@@ -110,7 +110,7 @@ void Player::load_board( const string &filename )
         for( size_t j = 0; j < COLS; ++j )
             newNode->board[ i ][ j ] = (char)str.at( j );
 
-        ++i;
+        --i;
     }
 
     loadFile.close();
@@ -122,7 +122,15 @@ void Player::store_board( const string &filename, int history_offset ) const
 {
     cout << "\nFilename: "<< filename << "\nHistory: "<< history_offset << '\n' << endl;
 
-    pimpl->listBoards();
+    int history = 0;
+    Node moveMe = pimpl->tail;
+    while( moveMe->prev != nullptr && history != history_offset )
+    {
+        moveMe = moveMe->prev;
+        ++history;
+    }
+
+    pimpl->printBoard( moveMe );
 }
 
 void Player::Impl::append( Node newNode )
@@ -182,5 +190,5 @@ void Player::Impl::listRevBoards()
 
 void Player::move()
 {
-    pimpl->listBoards();
+    pimpl->listRevBoards();
 }
