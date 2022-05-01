@@ -3,10 +3,11 @@
 #define ROWS 8
 #define COLS 15
 
+#define NPED 12
+
 using std::ifstream;
 using std::ofstream;
 
-/* DELETE ME */
 using std::cout;
 using std::endl;
 
@@ -27,6 +28,7 @@ struct Player::Impl
     void destroy( Node ) const;
     void append( Node );
     void printBoard( Node );
+    void printMemBoard( Node );
     void listBoards();
     void listRevBoards();
 };
@@ -44,6 +46,13 @@ Player::~Player()
 {
     pimpl->destroy( pimpl->head );
     delete pimpl;
+}
+
+Player::Player( const Player& p )
+{
+    pimpl = new Impl;
+    pimpl->head = p.pimpl->head;
+    pimpl->tail = p.pimpl->tail;
 }
 
 void Player::Impl::destroy( Node node ) const
@@ -101,18 +110,22 @@ void Player::load_board( const string &filename )
     loadFile.open( filename );
     if( !loadFile.is_open() ) throw player_exception{ player_exception::missing_file, "Missing file!..." };
 
-    int i = ROWS - 1;
+    int i = ( ROWS - 1 );
     string str;
     Node newNode = new Cell;
 
     while( getline( loadFile, str ) )
     {
         for( size_t j = 0; j < COLS; ++j )
+        {
+            if( (char)str.at( j ) == ' ')
+                str.at( j ) = 'e';
+
             newNode->board[ i ][ j ] = (char)str.at( j );
+        }
 
         --i;
     }
-
     loadFile.close();
 
     pimpl->append( newNode );
@@ -120,17 +133,29 @@ void Player::load_board( const string &filename )
 
 void Player::store_board( const string &filename, int history_offset ) const
 {
-    cout << "\nFilename: "<< filename << "\nHistory: "<< history_offset << '\n' << endl;
+    ofstream outputFile;
 
     int history = 0;
     Node moveMe = pimpl->tail;
-    while( moveMe->prev != nullptr && history != history_offset )
+
+    while( ( moveMe->prev != nullptr ) && ( history != history_offset ) )
     {
         moveMe = moveMe->prev;
         ++history;
     }
 
-    pimpl->printBoard( moveMe );
+    if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size" };
+
+    outputFile.open( filename );
+    for( int i = ( ROWS - 1 ); i >= 0; --i )
+    {
+        for( int j = 0; j < COLS; ++j )
+            moveMe->board[ i ][ j ] == 'e' ? outputFile << ' ' : outputFile << moveMe->board[ i ][ j ];
+
+        if( i > 0 )
+            outputFile << endl;
+    }
+    outputFile.close();
 }
 
 void Player::Impl::append( Node newNode )
@@ -155,12 +180,29 @@ void Player::Impl::printBoard( Node printNode )
 {
     cout << "---------------"<< endl;
 
-    for( int i = 0; i < ROWS; ++i )
+    for( int i = ROWS - 1; i >= 0; --i )
     {
          for( int j = 0; j < COLS; ++j )
-            cout << printNode->board[ i ][ j ];
+            printNode->board[ i ][ j ] == 'e' ? cout << ' ' : cout <<  printNode->board[ i ][ j ];
 
          cout << endl;
+    }
+
+    cout << "---------------\n"<< endl;
+
+    printMemBoard( printNode );
+}
+
+void Player::Impl::printMemBoard( Node printNode )
+{
+    cout << "---------------"<< endl;
+
+    for( int i = ( ROWS - 1 ); i >= 0; --i )
+    {
+        for( int j = 0; j < COLS; ++j )
+           cout <<  printNode->board[ i ][ j ];
+
+        cout << endl;
     }
 
     cout << "---------------\n"<< endl;

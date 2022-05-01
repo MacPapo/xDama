@@ -30,9 +30,17 @@ int main( int argc, char** argv )
         p1.load_board( board_name );
         board_name = "board_4.txt";
         p1.load_board( board_name );
+        board_name = "board_5.txt";
+        p1.load_board( board_name );
+        board_name = "board_6.txt";
+        p1.load_board( board_name );
 
-        //p1.store_board( board_name, 2 );
-         p1.move();
+        // cout << "Trying to save the board...\t";
+        // board_name = "board_6.txt";
+        // p1.store_board( board_name, 2 );
+        // cout << "Board saved correctly!" << endl;
+
+        p1.move();
 
     }
     catch( player_exception pe )

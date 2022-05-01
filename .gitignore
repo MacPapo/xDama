@@ -29,9 +29,13 @@
 *.exe
 *.out
 *.app
+*.elf
 
 # MacOS Staff
 *.DS_Store
 
 # Emacs Staff
 *.ccls-cache
+
+# exec
+bin/*
