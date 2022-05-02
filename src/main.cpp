@@ -25,40 +25,48 @@ int main( int argc, char** argv )
         p1.load_board( board_name );
         cout << "Board loaded correctly!" << endl;
 
-        board_name = "board_2.txt";
-        p1.load_board( board_name );
-        board_name = "board_3.txt";
-        p1.load_board( board_name );
-        board_name = "board_4.txt";
-        p1.load_board( board_name );
-        board_name = "board_5.txt";
-        p1.load_board( board_name );
-        board_name = "board_6.txt";
-        p1.load_board( board_name );
-        board_name = "board_7.txt";
-        p1.load_board( board_name );
-        board_name = "board_8.txt";
-        p1.load_board( board_name );
-        board_name = "board_9.txt";
-        p1.load_board( board_name );
+        // board_name = "board_2.txt";
+        // p1.load_board( board_name );
+        // board_name = "board_3.txt";
+        // p1.load_board( board_name );
+        // board_name = "board_4.txt";
+        // p1.load_board( board_name );
+
+        // board_name = "board_6.txt";
+        // p1.load_board( board_name );
+        // board_name = "board_7.txt";
+        // p1.load_board( board_name );
+        // board_name = "board_8.txt";
+        // p1.load_board( board_name );
+        // board_name = "board_9.txt";
+        // p1.load_board( board_name );
 
         cout << "T3) Trying to save the board...\t\t";
         board_name = "board_9.txt";
         p1.store_board( board_name, 0 );
         cout << "Board saved correctly!" << endl;
 
-        // p1.move();
+        Player p2(p1);
+        p2.move();
+        cout << "\n--------------\n";
+        p1.move();
 
-        // cout << "Popping the last cell...\t";
-        // p1.pop();
-        // cout << "Last cell popped" << endl;
+        cout << "Popping the last cell...\t";
+        p1.pop();
+        p2.pop();
+        cout << "Last cell popped" << endl;
 
+        p2.move();
+        cout << "\n--------------\n";
+        p1.move();
         cout << "T4) Finding recurrent boards...\t\t";
         cout << "Recurrence founded: " << p1.recurrence() << endl;
 
+        cout << "T5) Finding the piece...\t\t";
+        cout << "Character found: " << p1( 7, 0 ) << endl;
         //p1.move();
     }
-    catch( player_exception pe )
+    catch( player_exception& pe )
     {
         cout << "\n\nError type:\t" << pe.t << "\nException...\t" << pe.msg << endl;
     }

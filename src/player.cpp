@@ -23,15 +23,19 @@ typedef struct Cell* Node;
 struct Player::Impl
 {
     short nPLayer;
-    Node head;
-    Node tail;
+    Node  head;
+    Node  tail;
 
-    void destroy( Node ) const;
-    void append( Node );
-    void printBoard( Node );
-    void printMemBoard( Node );
-    void listBoards();
-    void listRevBoards();
+    void  destroy( Node ) const;
+    void  append( Node );
+    void  printBoard( const Node& );
+    void  printMemBoard( const Node& );
+    void  listBoards();
+    void  listRevBoards();
+    Node  copy( const Node& );
+    piece findEnum( const char& );
+
+    Node  bringNode( const int& );
 };
 
 /// Player class implementation ///////////////////////////////////////////////
@@ -39,12 +43,11 @@ struct Player::Impl
 Player::Player( int player_nr )
 {
     if( player_nr != 1 && player_nr != 2 ) throw player_exception{ player_exception::index_out_of_bounds, "player_nr is neither player1 or player2" };
-
     pimpl = new Impl;
 
     pimpl->nPLayer = (short) player_nr;
-    pimpl->head = nullptr;
-    pimpl->tail = nullptr;
+    pimpl->head    = nullptr;
+    pimpl->tail    = nullptr;
 }
 
 Player::~Player()
@@ -55,9 +58,26 @@ Player::~Player()
 
 Player::Player( const Player& p )
 {
-    pimpl = new Impl;
-    pimpl->head = p.pimpl->head;
-    pimpl->tail = p.pimpl->tail;
+    *this = p;
+}
+
+Player& Player::operator=( const Player& pl )
+{
+    if( this != &pl )
+    {
+        pimpl = new Impl;
+        pimpl->destroy( pimpl->head );
+        Node moveMe = pl.pimpl->head;
+
+        while( moveMe != nullptr )
+        {
+            this->pimpl->append( pimpl->copy( moveMe ) );
+
+            moveMe = moveMe->next;
+        }
+    }
+
+    return *this;
 }
 
 void Player::init_board( const string& filename ) const
@@ -130,16 +150,7 @@ void Player::load_board( const string &filename )
 
 void Player::store_board( const string &filename, int history_offset ) const
 {
-    int history = 0;
-    Node moveMe = pimpl->tail;
-
-    while( ( moveMe->prev != nullptr ) && ( history != history_offset ) )
-    {
-        moveMe = moveMe->prev;
-        ++history;
-    }
-
-    if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size" };
+    Node moveMe = pimpl->bringNode( history_offset );
 
     ofstream outputFile;
     outputFile.open( filename );
@@ -154,26 +165,48 @@ void Player::store_board( const string &filename, int history_offset ) const
     outputFile.close();
 }
 
+Player::piece Player::operator()( int r, int c, int history_offset ) const
+{
+   Node moveMe = pimpl->bringNode( history_offset );
+
+   Player::piece p = pimpl->findEnum( moveMe->board[ r ][ c ] );
+
+   return p;
+}
+
 void Player::move()
 {
-    pimpl->listRevBoards();
+    pimpl->listBoards();
+    // pimpl->listRevBoards();
 }
 
 void Player::pop()
 {
-    Node prevTail = pimpl->tail->prev;
+    if( !pimpl->head ) throw player_exception { player_exception::index_out_of_bounds, "Pop called in empty History"};
 
-    pimpl->destroy( pimpl->tail );
-    pimpl->tail = prevTail;
-    prevTail->next = nullptr;
-
-    delete prevTail;
+    if( pimpl->tail->prev )
+    {
+        Node prevTail = pimpl->tail->prev;
+        pimpl->destroy( pimpl->tail );
+        pimpl->tail = prevTail;
+        prevTail->next = nullptr;
+        delete prevTail;
+    }
+    else
+    {
+        pimpl->destroy( pimpl->head );
+        pimpl->head = nullptr;
+        pimpl->tail = nullptr;
+    }
 }
 
 int Player::recurrence() const
 {
     int counter = 1;
     bool different;
+
+    if( pimpl->tail == nullptr ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in recurrence func" };
+
     Node reference = pimpl->tail;
     Node moveMe = pimpl->tail->prev;
 
@@ -229,7 +262,64 @@ void Player::Impl::append( Node newNode )
     newNode->next = nullptr;
 }
 
-void Player::Impl::printBoard( Node printNode )
+Node Player::Impl::copy( const Node& node )
+{
+    Node storeMe = new Cell;
+
+    for( int i = (ROWS - 1); i >= 0; --i )
+    {
+        for( int j = 0; j < COLS; ++j )
+            storeMe->board[ i ][ j ] = node->board[ i ][ j ];
+    }
+
+    return storeMe;
+}
+
+Node Player::Impl::bringNode( const int& history_offset )
+{
+    int history = 0;
+    Node moveMe = this->tail;
+
+    while( ( moveMe->prev != nullptr ) && ( history != history_offset ) )
+    {
+        moveMe = moveMe->prev;
+        ++history;
+    }
+    if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size" };
+
+    return moveMe;
+}
+
+Player::piece Player::Impl::findEnum( const char &c )
+{
+    Player::piece p;
+    switch( c )
+    {
+        case 'x':
+            p = Player::x;
+            break;
+
+        case 'o':
+            p = Player::o;
+            break;
+
+        case 'e':
+            p = Player::e;
+            break;
+
+        case 'X':
+            p = Player::x;
+            break;
+
+        case 'O':
+            p = Player::x;
+            break;
+    }
+
+    return p;
+}
+
+void Player::Impl::printBoard( const Node& printNode )
 {
     cout << "---------------"<< endl;
 
@@ -246,7 +336,7 @@ void Player::Impl::printBoard( Node printNode )
     //printMemBoard( printNode );
 }
 
-void Player::Impl::printMemBoard( Node printNode )
+void Player::Impl::printMemBoard( const Node& printNode )
 {
     cout << "---------------"<< endl;
 
