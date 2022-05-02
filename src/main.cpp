@@ -5,22 +5,23 @@ using namespace std;
 
 int main( int argc, char** argv )
 {
-    cout << "The executable recived " << argc << " parameters\n" <<endl;
     int player_nr = atoi( argv[ 1 ] );
 
     int round = player_nr;
     string board_name =  "board_" + std::to_string( round ) + ".txt";
-    cout << "Hi Boss, ready for some tests...\nPlaying as P" << player_nr << endl;
+
+    cout << "\n\nHi Boss\t\t\t\t\tMac recived " << argc << " parameters" <<endl;
+    cout << "Macintosh ready for some tests...\tPlaying as P" << player_nr << endl;
 
     try
     {
         Player p1( player_nr );
 
-        cout << "\nInitializing the first board...\t";
+        cout << "\nT1) Creating the first board...\t\t";
         p1.init_board( board_name );
         cout << "Board initialized correctly!" << endl;
 
-        cout << "Trying to load the board...\t";
+        cout << "T2) Trying to load the board...\t\t";
         p1.load_board( board_name );
         cout << "Board loaded correctly!" << endl;
 
@@ -34,14 +35,28 @@ int main( int argc, char** argv )
         p1.load_board( board_name );
         board_name = "board_6.txt";
         p1.load_board( board_name );
+        board_name = "board_7.txt";
+        p1.load_board( board_name );
+        board_name = "board_8.txt";
+        p1.load_board( board_name );
+        board_name = "board_9.txt";
+        p1.load_board( board_name );
 
-        // cout << "Trying to save the board...\t";
-        // board_name = "board_6.txt";
-        // p1.store_board( board_name, 2 );
-        // cout << "Board saved correctly!" << endl;
+        cout << "T3) Trying to save the board...\t\t";
+        board_name = "board_9.txt";
+        p1.store_board( board_name, 0 );
+        cout << "Board saved correctly!" << endl;
 
-        p1.move();
+        // p1.move();
 
+        // cout << "Popping the last cell...\t";
+        // p1.pop();
+        // cout << "Last cell popped" << endl;
+
+        cout << "T4) Finding recurrent boards...\t\t";
+        cout << "Recurrence founded: " << p1.recurrence() << endl;
+
+        //p1.move();
     }
     catch( player_exception pe )
     {

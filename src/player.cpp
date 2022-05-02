@@ -22,6 +22,7 @@ typedef struct Cell* Node;
 
 struct Player::Impl
 {
+    short nPLayer;
     Node head;
     Node tail;
 
@@ -33,11 +34,15 @@ struct Player::Impl
     void listRevBoards();
 };
 
+/// Player class implementation ///////////////////////////////////////////////
+
 Player::Player( int player_nr )
 {
     if( player_nr != 1 && player_nr != 2 ) throw player_exception{ player_exception::index_out_of_bounds, "player_nr is neither player1 or player2" };
 
     pimpl = new Impl;
+
+    pimpl->nPLayer = (short) player_nr;
     pimpl->head = nullptr;
     pimpl->tail = nullptr;
 }
@@ -55,15 +60,6 @@ Player::Player( const Player& p )
     pimpl->tail = p.pimpl->tail;
 }
 
-void Player::Impl::destroy( Node node ) const
-{
-    if( node )
-    {
-        destroy( node->next );
-        delete node;
-    }
-}
-
 void Player::init_board( const string& filename ) const
 {
     ofstream initFile;
@@ -74,16 +70,16 @@ void Player::init_board( const string& filename ) const
     {
         for( int cols = 0; cols < COLS; ++cols )
         {
-            if( rows <= 2 && rows >= 0 ) // print from rows 1 to 3 with o and spaces
+            if( rows <= 2 && rows >= 0 ) // print from rows 1 to 3 with x and spaces
             {
-                if( rows % 2 == 0 ) // print row 7 with x and spaces
+                if( rows % 2 == 0 ) // print row 2 with x and spaces
                     ( ( cols % 2 == 0 ) && ( cols % 4 != 0 ) ) ? initFile << 'x' : initFile << ' ';
 
                 else // print rows 6 and 8 with x and spaces
                     ( cols % 4 == 0 ) ? initFile << 'x' : initFile << ' ';
             }
 
-            else if( rows <= 7 && rows >= 5 ) // print from rows 6 to 8 with x and spaces
+            else if( rows <= 7 && rows >= 5 ) // print from rows 6 to 8 with o and spaces
             {
                 if( rows % 2 != 0 ) // print rows 1 and 3 with o and spaces
                     ( cols % 4 == 0 ) ? initFile << 'o' : initFile << ' ';
@@ -128,13 +124,12 @@ void Player::load_board( const string &filename )
     }
     loadFile.close();
 
+    // validmove??
     pimpl->append( newNode );
 }
 
 void Player::store_board( const string &filename, int history_offset ) const
 {
-    ofstream outputFile;
-
     int history = 0;
     Node moveMe = pimpl->tail;
 
@@ -146,6 +141,7 @@ void Player::store_board( const string &filename, int history_offset ) const
 
     if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size" };
 
+    ofstream outputFile;
     outputFile.open( filename );
     for( int i = ( ROWS - 1 ); i >= 0; --i )
     {
@@ -156,6 +152,63 @@ void Player::store_board( const string &filename, int history_offset ) const
             outputFile << endl;
     }
     outputFile.close();
+}
+
+void Player::move()
+{
+    pimpl->listRevBoards();
+}
+
+void Player::pop()
+{
+    Node prevTail = pimpl->tail->prev;
+
+    pimpl->destroy( pimpl->tail );
+    pimpl->tail = prevTail;
+    prevTail->next = nullptr;
+
+    delete prevTail;
+}
+
+int Player::recurrence() const
+{
+    int counter = 1;
+    bool different;
+    Node reference = pimpl->tail;
+    Node moveMe = pimpl->tail->prev;
+
+    while( moveMe != nullptr )
+    {
+        different = false;
+        for( int i = 0; i < COLS && !different; ++i )
+        {
+            for( int j = 0; j < ROWS && !different; ++j )
+            {
+                if( reference->board[ j ][ i ] != moveMe->board[ j ][ i ] )
+                    different = true;
+            }
+        }
+
+        if( !different )
+            ++counter;
+
+        moveMe = moveMe->prev;
+    }
+
+    return counter;
+}
+
+/// End of Player Implementation //////////////////////////////////////////////
+
+/// Impl struct implementation ////////////////////////////////////////////////
+
+void Player::Impl::destroy( Node node ) const
+{
+    if( node )
+    {
+        destroy( node->next );
+        delete node;
+    }
 }
 
 void Player::Impl::append( Node newNode )
@@ -190,7 +243,7 @@ void Player::Impl::printBoard( Node printNode )
 
     cout << "---------------\n"<< endl;
 
-    printMemBoard( printNode );
+    //printMemBoard( printNode );
 }
 
 void Player::Impl::printMemBoard( Node printNode )
@@ -230,7 +283,4 @@ void Player::Impl::listRevBoards()
     }
 }
 
-void Player::move()
-{
-    pimpl->listRevBoards();
-}
+/// End of Impl implementation ////////////////////////////////////////////////
