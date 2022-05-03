@@ -1,9 +1,11 @@
 #include "player.hpp"
 
-#define ROWS 8
-#define COLS 15
+#define ROWS    8
+#define COLS    15
 
-#define NPED 12
+#define MATSIZE 120
+#define MPED    24
+#define NPED    12
 
 using std::ifstream;
 using std::ofstream;
@@ -34,15 +36,16 @@ struct Player::Impl
     void  listRevBoards();
     Node  copy( const Node& );
     piece findEnum( const char& );
-
     Node  bringNode( const int& );
+
+    bool validBoard( const Node& );
 };
 
 /// Player class implementation ///////////////////////////////////////////////
 
 Player::Player( int player_nr )
 {
-    if( player_nr != 1 && player_nr != 2 ) throw player_exception{ player_exception::index_out_of_bounds, "player_nr is neither player1 or player2" };
+    if( player_nr != 1 && player_nr != 2 ) throw player_exception{ player_exception::index_out_of_bounds, "player_nr is neither player1 or player2 in Player constructor!!" };
     pimpl = new Impl;
 
     pimpl->nPLayer = (short) player_nr;
@@ -85,51 +88,36 @@ void Player::init_board( const string& filename ) const
     ofstream initFile;
 
     initFile.open( filename );
-
-    for( int rows = ROWS - 1; initFile.good() && rows >= 0; --rows )
+    for( int rows = 0; ( initFile.good() ) && ( rows < ROWS ); ++rows )
     {
         for( int cols = 0; cols < COLS; ++cols )
         {
-            if( rows <= 2 && rows >= 0 ) // print from rows 1 to 3 with x and spaces
-            {
-                if( rows % 2 == 0 ) // print row 2 with x and spaces
-                    ( ( cols % 2 == 0 ) && ( cols % 4 != 0 ) ) ? initFile << 'x' : initFile << ' ';
-
-                else // print rows 6 and 8 with x and spaces
-                    ( cols % 4 == 0 ) ? initFile << 'x' : initFile << ' ';
-            }
-
-            else if( rows <= 7 && rows >= 5 ) // print from rows 6 to 8 with o and spaces
-            {
-                if( rows % 2 != 0 ) // print rows 1 and 3 with o and spaces
-                    ( cols % 4 == 0 ) ? initFile << 'o' : initFile << ' ';
-
-                else // print row 2 with o and spaces
-                    ( !( cols % 4 == 0 ) && ( cols % 2 == 0 ) ) ? initFile << 'o' : initFile << ' ';
-            }
-
-            else // print the rows 4 and 5 with only spaces
+            if( rows == 3 || rows == 4 )
+                initFile << ' ';
+            else if( ( rows % 2 == 0 ) && ( cols % 4 == 0 ) )
+                rows >= 5 ? initFile << 'x' : initFile << 'o';
+            else if( ( rows % 2 != 0 ) && ( cols % 2 == 0 ) && ( cols % 4 != 0 ) )
+                rows >= 5 ? initFile << 'x' : initFile << 'o';
+            else
                 initFile << ' ';
         }
-
-        if( rows > 0 )
-            initFile << std::endl;
+        if( rows < 7 )
+            initFile << endl;
     }
-
     initFile.close();
 }
+
 
 void Player::load_board( const string &filename )
 {
     ifstream loadFile;
 
     loadFile.open( filename );
-    if( !loadFile.is_open() ) throw player_exception{ player_exception::missing_file, "Missing file!..." };
+    if( !loadFile.is_open() ) throw player_exception{ player_exception::missing_file, "Missing file in load_board() func!!..." };
 
     int i = ( ROWS - 1 );
     string str;
     Node newNode = new Cell;
-
     while( getline( loadFile, str ) )
     {
         for( size_t j = 0; j < COLS; ++j )
@@ -144,7 +132,9 @@ void Player::load_board( const string &filename )
     }
     loadFile.close();
 
-    // validmove??
+    if( !pimpl->validBoard( newNode) )
+        cout << "Scossaaa!!" << endl;
+    // validmove?? if invalid throw
     pimpl->append( newNode );
 }
 
@@ -167,11 +157,10 @@ void Player::store_board( const string &filename, int history_offset ) const
 
 Player::piece Player::operator()( int r, int c, int history_offset ) const
 {
-   Node moveMe = pimpl->bringNode( history_offset );
+    if( ( r < 0 && r > 7 ) && ( c < 0 && c > 14) ) throw player_exception { player_exception::index_out_of_bounds, "Wrong coordinates... out of range in operator() func..." };
+    Node moveMe = pimpl->bringNode( history_offset );
 
-   Player::piece p = pimpl->findEnum( moveMe->board[ r ][ c ] );
-
-   return p;
+    return pimpl->findEnum( moveMe->board[ r ][ c ] );
 }
 
 void Player::move()
@@ -182,7 +171,7 @@ void Player::move()
 
 void Player::pop()
 {
-    if( !pimpl->head ) throw player_exception { player_exception::index_out_of_bounds, "Pop called in empty History"};
+    if( !pimpl->head ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in pop() func..."};
 
     if( pimpl->tail->prev )
     {
@@ -202,11 +191,10 @@ void Player::pop()
 
 int Player::recurrence() const
 {
+    if( pimpl->tail == nullptr ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in recurrence() func..." };
+
     int counter = 1;
     bool different;
-
-    if( pimpl->tail == nullptr ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in recurrence func" };
-
     Node reference = pimpl->tail;
     Node moveMe = pimpl->tail->prev;
 
@@ -229,6 +217,13 @@ int Player::recurrence() const
     }
 
     return counter;
+}
+
+bool Player::wins( int player_nr ) const
+{
+    if( pimpl->tail == nullptr || ( player_nr != 1 && player_nr != 2 ) ) throw player_exception { player_exception::index_out_of_bounds, "player_nr is neither 1 or 2, or empty history in wins() func..." };
+    cout << player_nr << endl;
+    return true;
 }
 
 /// End of Player Implementation //////////////////////////////////////////////
@@ -285,14 +280,14 @@ Node Player::Impl::bringNode( const int& history_offset )
         moveMe = moveMe->prev;
         ++history;
     }
-    if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size" };
+    if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size!..." };
 
     return moveMe;
 }
 
 Player::piece Player::Impl::findEnum( const char &c )
 {
-    Player::piece p;
+    Player::piece p = Player::x;
     switch( c )
     {
         case 'x':
@@ -319,10 +314,53 @@ Player::piece Player::Impl::findEnum( const char &c )
     return p;
 }
 
+bool Player::Impl::validBoard( const Node& node )
+{
+    short xCounter   = 0;
+    short oCounter   = 0;
+    short totCounter = 0;
+    for( int i = ROWS - 1; i >= 0; --i )
+    {
+        for( int j = 0; j < COLS; ++j )
+        {
+            // cout << '[' << i << ']' << '[' << j << ']' << node->board[i][j]<< endl;
+            if( ( i % 2 == 1 ) && ( j % 4 != 0 ) && node->board[ i ][ j ] != 'e' )
+                throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
+            else if( ( i % 2 == 0 ) && ( j  != 2 ) && ( j  != 6 ) && ( j  != 10 ) && ( j  != 14 ) && node->board[ i ][ j ] != 'e' )
+                throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
+
+            switch ( node->board[ i ][ j ])
+            {
+                case 'x': case 'X':
+                    ++xCounter;
+                    ++totCounter;
+                    break;
+
+                case 'o': case 'O':
+                    ++oCounter;
+                    ++totCounter;
+                    break;
+
+                case 'e':
+                    ++totCounter;
+                    break;
+
+                default:
+                    throw player_exception { player_exception::missing_file, "Invalid character in board loaded!!..." };
+            }
+        }
+    }
+
+    cout << "\nxCounter: " << xCounter << "\noCounter: " << oCounter << "\ntotCounter: " << totCounter << endl;
+    if( ( xCounter + oCounter > MPED ) || totCounter != MATSIZE )
+        return false;
+
+    return true;
+}
+
 void Player::Impl::printBoard( const Node& printNode )
 {
     cout << "---------------"<< endl;
-
     for( int i = ROWS - 1; i >= 0; --i )
     {
          for( int j = 0; j < COLS; ++j )
@@ -330,16 +368,14 @@ void Player::Impl::printBoard( const Node& printNode )
 
          cout << endl;
     }
-
     cout << "---------------\n"<< endl;
 
-    //printMemBoard( printNode );
+    // printMemBoard( printNode );
 }
 
 void Player::Impl::printMemBoard( const Node& printNode )
 {
     cout << "---------------"<< endl;
-
     for( int i = ( ROWS - 1 ); i >= 0; --i )
     {
         for( int j = 0; j < COLS; ++j )
@@ -347,7 +383,6 @@ void Player::Impl::printMemBoard( const Node& printNode )
 
         cout << endl;
     }
-
     cout << "---------------\n"<< endl;
 }
 
