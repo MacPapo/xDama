@@ -17,9 +17,9 @@ int main( int argc, char** argv )
     {
         Player p1( player_nr );
 
-        // cout << "\nT1) Creating the first board...\t\t";
-        // p1.init_board( board_name );
-        // cout << "Board initialized correctly!" << endl;
+        cout << "\nT1) Creating the first board...\t\t";
+        p1.init_board( board_name );
+        cout << "Board initialized correctly!" << endl;
 
         cout << "T2) Trying to load the board...\t\t";
         p1.load_board( board_name );

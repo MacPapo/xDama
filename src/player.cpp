@@ -38,7 +38,7 @@ struct Player::Impl
     piece findEnum( const char& );
     Node  bringNode( const int& );
 
-    bool validBoard( const Node& );
+    void validBoard( int, size_t, const Node& );
 };
 
 /// Player class implementation ///////////////////////////////////////////////
@@ -117,24 +117,43 @@ void Player::load_board( const string &filename )
 
     int i = ( ROWS - 1 );
     string str;
-    Node newNode = new Cell;
+    Node  newNode    = new Cell;
+    short xCounter   = 0;
+    short oCounter   = 0;
     while( getline( loadFile, str ) )
     {
+        if( str.length() != 15 ) throw player_exception { player_exception::missing_file, "Invalid length in load_board() func..." };
         for( size_t j = 0; j < COLS; ++j )
         {
             if( (char)str.at( j ) == ' ')
                 str.at( j ) = 'e';
 
             newNode->board[ i ][ j ] = (char)str.at( j );
+            pimpl->validBoard( i, j, newNode );
+            switch ( newNode->board[ i ][ j ])
+            {
+                case 'x': case 'X':
+                    ++xCounter;
+                    break;
+
+                case 'o': case 'O':
+                    ++oCounter;
+                    break;
+
+                case 'e':
+                    break;
+
+                default:
+                    throw player_exception { player_exception::missing_file, "Invalid character in board loaded!!..." };
+            }
+
+            if( xCounter + oCounter > MPED )
+                throw player_exception { player_exception::invalid_board, "To many pieces in the loaded board!!..." };
         }
 
         --i;
     }
     loadFile.close();
-
-    if( !pimpl->validBoard( newNode) )
-        cout << "Scossaaa!!" << endl;
-    // validmove?? if invalid throw
     pimpl->append( newNode );
 }
 
@@ -303,59 +322,24 @@ Player::piece Player::Impl::findEnum( const char &c )
             break;
 
         case 'X':
-            p = Player::x;
+            p = Player::X;
             break;
 
         case 'O':
-            p = Player::x;
+            p = Player::O;
             break;
     }
 
     return p;
 }
 
-bool Player::Impl::validBoard( const Node& node )
+void Player::Impl::validBoard( int row, size_t col, const Node& node )
 {
-    short xCounter   = 0;
-    short oCounter   = 0;
-    short totCounter = 0;
-    for( int i = ROWS - 1; i >= 0; --i )
-    {
-        for( int j = 0; j < COLS; ++j )
-        {
-            // cout << '[' << i << ']' << '[' << j << ']' << node->board[i][j]<< endl;
-            if( ( i % 2 == 1 ) && ( j % 4 != 0 ) && node->board[ i ][ j ] != 'e' )
-                throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
-            else if( ( i % 2 == 0 ) && ( j  != 2 ) && ( j  != 6 ) && ( j  != 10 ) && ( j  != 14 ) && node->board[ i ][ j ] != 'e' )
-                throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
 
-            switch ( node->board[ i ][ j ])
-            {
-                case 'x': case 'X':
-                    ++xCounter;
-                    ++totCounter;
-                    break;
-
-                case 'o': case 'O':
-                    ++oCounter;
-                    ++totCounter;
-                    break;
-
-                case 'e':
-                    ++totCounter;
-                    break;
-
-                default:
-                    throw player_exception { player_exception::missing_file, "Invalid character in board loaded!!..." };
-            }
-        }
-    }
-
-    cout << "\nxCounter: " << xCounter << "\noCounter: " << oCounter << "\ntotCounter: " << totCounter << endl;
-    if( ( xCounter + oCounter > MPED ) || totCounter != MATSIZE )
-        return false;
-
-    return true;
+    if( ( row % 2 == 1 ) && ( col % 4 != 0 ) && node->board[ row ][ col ] != 'e' )
+        throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
+    else if( ( row % 2 == 0 ) && ( ( col - 2) % 4 != 0 ) && node->board[ row ][ col ] != 'e' )
+        throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
 }
 
 void Player::Impl::printBoard( const Node& printNode )
