@@ -25,21 +25,21 @@ int main( int argc, char** argv )
         p1.load_board( board_name );
         cout << "Board loaded correctly!" << endl;
 
-        // board_name = "board_2.txt";
-        // p1.load_board( board_name );
-        // board_name = "board_3.txt";
-        // p1.load_board( board_name );
-        // board_name = "board_4.txt";
-        // p1.load_board( board_name );
+        board_name = "board_2.txt";
+        p1.load_board( board_name );
+        board_name = "board_3.txt";
+        p1.load_board( board_name );
+        board_name = "board_4.txt";
+        p1.load_board( board_name );
 
-        // board_name = "board_6.txt";
-        // p1.load_board( board_name );
-        // board_name = "board_7.txt";
-        // p1.load_board( board_name );
-        // board_name = "board_8.txt";
-        // p1.load_board( board_name );
-        // board_name = "board_9.txt";
-        // p1.load_board( board_name );
+        board_name = "board_6.txt";
+        p1.load_board( board_name );
+        board_name = "board_7.txt";
+        p1.load_board( board_name );
+        board_name = "board_8.txt";
+        p1.load_board( board_name );
+        board_name = "board_9.txt";
+        p1.load_board( board_name );
 
         // cout << "T3) Trying to save the board...\t\t";
         // board_name = "board_9.txt";
