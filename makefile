@@ -5,11 +5,11 @@ UNAME:=$(shell uname)
 
 
 # Declaring the compiler flags for debug and errors
-CFLAGS=-g -std=c++14 -pedantic -Wall -Wextra -Werror -Wshadow -Wconversion -Wunreachable-code
+CFLAGS=-std=c++14 -pedantic -Wall -Wextra -Werror -Wshadow -Wconversion -Wunreachable-code
 
 # MacOS flags
 ifeq ($(UNAME), Darwin)
-	CC=clang
+	CC=clang++
 endif
 
 # Linux flags
@@ -20,6 +20,7 @@ endif
 # Declering the directories
 SRC=src
 OBJ=obj
+BOARDS = boards
 BINDIR=bin
 BIN=$(BINDIR)/xDama
 
@@ -35,7 +36,7 @@ $(OBJ)/%.o: $(SRC)/%.cpp
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	$(RM) -r $(BINDIR)/* $(OBJ)/*
+	$(RM) -r $(BINDIR)/* $(OBJ)/* $(BOARDS)/*
 
 valgrind:
 	valgrind --leak-check=full --show-leak-kinds=all -s --track-origins=yes --log-file=valgrind-out.txt ./bin/xDama 1
