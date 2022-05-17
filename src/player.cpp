@@ -53,7 +53,7 @@ class Board
 {
     public:
         Board( char b[ ROWS ][ COLS ] );
-        Board( Board& );
+        Board( Board* );
         void  initBoard();
         void  setBoard();
         void  getBoard();
@@ -256,9 +256,9 @@ void Player::move()
     Pair deleteMe;
 
     if( pimpl->nPLayer == 1 )
-        deleteMe = pimpl->minimax( pimpl->tail->b, 1, true );
+        deleteMe = pimpl->minimax( pimpl->tail->b, 2, true );
     else
-        deleteMe = pimpl->minimax( pimpl->tail->b, 1, false );
+        deleteMe = pimpl->minimax( pimpl->tail->b, 2, false );
 
     Pcell ciao = new Cell;
     ciao->b = deleteMe.pio;
@@ -600,11 +600,11 @@ Board::Board( char b[ROWS][COLS] )
     updatePieceLeft();
 }
 
-Board::Board( Board& source )
+Board::Board( Board* source )
 {
     for( int i = ( ROWS - 1 ); i >= 0; --i )
         for( int j = 0; j < COLS; ++j )
-            board[ i ][ j ].setValues( source.board[ i ][ j ].getType(), i, j );
+            board[ i ][ j ].setValues( source->board[ i ][ j ].getType(), i, j );
     updatePieceLeft();
 }
 
@@ -862,7 +862,6 @@ Pair Player::Impl::minimax( Pboard& board, int depth, bool maxPlayer )
         Pair bestMove;
         bestMove.score = board->evalutation();
         bestMove.pio   = board;
-        cout << "Forse valore brutto: " << bestMove.score << endl;
         return bestMove;
     }
 
