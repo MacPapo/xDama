@@ -1,4 +1,6 @@
 #include "player.hpp"
+#include <cstddef>
+#include <iostream>
 
 #define ROWS    8
 #define COLS    15
@@ -17,33 +19,42 @@ using std::cout;
 using std::endl;
 
 struct Cell;
-struct Pair;
+struct BoardCell;
+typedef BoardCell* BoardList;
 
+struct Bin
+{
+    BoardList head;
+    Bin* nextTrash;
+};
+typedef Bin* Pbin;
 // Class Pawn definition
 class Pawn
 {
     public:
         Pawn();
-        Pawn( Pawn& );
-        Pawn( char, int, int, int );
-        void setValues( char, int, int );
-        void setCoordinates( int, int );
-        int  getX();
-        int  getY();
-        bool checkValidCoordinates( int, int );
-        bool isQueen();
+        Pawn( const Pawn& );
+        Pawn( const char&, const short&, const short&, const short& );
+        void setValues( const char&, const short&, const short& );
+        void setCoordinates( const short&, const short& );
+        short  getX() const;
+        short  getY() const;
+        bool isQueen() const;
+        char getType() const;
+        bool checkValidCoordinates( short, short );
+
         void printType();
-        char getType();
+
         void setQueen();
-        int  getPlayer();
+        short  getPlayer() const;
         void deletePawn();
-        Pawn operator = ( Pawn& );
+        Pawn operator = ( const Pawn& );
 
     private:
         char type;
-        int  player;
-        int  x;
-        int  y;
+        short  player;
+        short  x;
+        short  y;
         bool queen;
 };
 typedef Pawn* Pawn_t;
@@ -52,54 +63,55 @@ typedef Pawn* Pawn_t;
 class Board
 {
     public:
+        Board();
         Board( char b[ ROWS ][ COLS ] );
-        Board( Board* );
-        void  initBoard();
-        void  setBoard();
-        void  getBoard();
-        void  printBoard();
-        Pawn& getPawn( int, int );
-        void  move( Pawn& ,int row, int col );
-        Cell* getValidMoves( Pawn& );
-        Cell* getAllMoves(int);
-        void  updatePieceLeft();
-        void  traverseLeft ( int, int, int, Pawn, int, std::pair< int, int> );
-        void  traverseRight( int, int, int, Pawn, int, std::pair< int, int> );
-        void  destroy( Cell* ) const;
-        void  append( Cell*&, int );
-        int   wins();
-        int   getXLeft();
-        int   getOLeft();
-        double evalutation();
-        void initHead();
-        Cell* xHead;
-        Cell* oHead;
+        Board( Board& );
+        Board& operator = ( const Board& );
+        void   printBoard();
+        Pawn&  getPawn( short, short );
+        void   move( Pawn& ,short row, short col );
+        void   getAllMoves(short);
+        void   getValidMoves( Pawn& );
+        void   updatePieceLeft();
+        void   traverseLeft ( short, short, short, const Pawn&, short, std::pair< short, short> );
+        void   traverseRight( short, short, short, const Pawn&, short, std::pair< short, short> );
+        void   destroy( BoardList& ) const;
+        void   prepend( BoardList& cell, const Board& moved );
+        void   append( BoardList& cell, const Board& moved);
+        short    wins();
+        short    getXLeft();
+        short    getOLeft();
+        float evalutation();
+        float getScore();
+        void   setScore(float);
 
-        Cell* xTail;
-        Cell* oTail;
+        BoardList head;
 
     private:
         Pawn  board[ ROWS ][ COLS ];
-        int   xLeft;
-        int   oLeft;
-        int   xKing;
-        int   oKing;
+        float  eval;
+        short   xLeft;
+        short   oLeft;
+        short   xKing;
+        short   oKing;
 };
 typedef Board* Pboard;
 
 // Struct cell for lists
 struct Cell
 {
-    Pboard b;
+    Board b;
     struct Cell* next;
     struct Cell* prev;
 };
 typedef Cell* Pcell;
 
-struct Pair
+struct BoardCell
 {
-    Pboard pio;
-    double score;
+    Board movedBoard;
+    BoardList nextMove;
+
+    void append(BoardList);
 };
 
 // Impl Definition
@@ -110,18 +122,433 @@ struct Player::Impl
     Pcell head;
     Pcell tail;
 
-    void  destroy( Pcell ) const;
-    void  append( Pcell );
-    void  printBoard( const Pcell& );
-    void  printMemBoard( const Pcell& );
-    void  listBoards();
-    void  listRevBoards();
-    Pcell copy( const Pcell& );
-    piece findEnum( const char& );
-    Pcell bringPcell( const int& );
-    Pair  minimax( Pboard&, int, bool );
-    bool  validBoard( Pcell& );
+    Pbin garbageCollector;
+    Pbin garbageCollectorHead;
+    Pbin garbageCollectorTail;
+
+    void  destroy( Pcell& ) const;
+    void   append( Pcell );
+    void   printBoard( const Pcell& );
+    void   printMemBoard( const Pcell& );
+    void   listBoards();
+    void   listRevBoards();
+    Pcell  copy( Pcell& );
+    piece  findEnum( const char& );
+    Pcell  bringPcell( const int& );
+    Pboard minimax( const Pboard&, short, bool, float, float );
+    bool   validBoard( Pcell& );
+    void   appendToBin( BoardList& );
+    void   destroyBin( Pbin& );
+    void   destroyTrash( BoardList& );
 };
+
+/// Start of Pawn class implementation ////////////////////////////////////////
+
+Pawn::Pawn()
+{
+    x     = 0;
+    y     = 0;
+    type  = 'e';
+    queen = false;
+}
+
+Pawn::Pawn( const char& t, const short& row, const short& col, const short& playerNr )
+{
+    type   = t;
+    x      = col;
+    y      = row;
+    player = playerNr;
+
+    if(type == 'X' || type == 'O')
+        queen = true;
+}
+
+Pawn::Pawn( const Pawn& p )
+{
+    x      = p.x;
+    y      = p.y;
+    type   = p.type;
+    player = p.player;
+    queen  = p.queen;
+}
+
+void Pawn::setValues( const char& t, const short& row, const short& col)
+{
+    type = t;
+    setCoordinates(row, col);
+
+    if(type == 'x' || type == 'X')
+        player = 1;
+    else if(type == 'o' || type == 'O')
+        player = 2;
+    else
+        player = 0;
+
+    if(type == 'X' || type == 'O')
+        queen = true;
+    else
+        queen = false;
+}
+
+void Pawn::printType()
+{
+    cout << type << endl;
+}
+
+void Pawn::deletePawn()
+{
+    type   = 'e';
+    player =  0;
+    queen  = false;
+}
+
+void Pawn::setQueen()
+{
+    if(queen == false)
+    {
+        queen = true;
+        type == 'x' ? type = 'X': type = 'O';
+    }
+}
+
+void Pawn::setCoordinates( const short& row, const short& col)
+{
+    if( checkValidCoordinates(row, col) )
+    {
+        x = col;
+        y = row;
+    }
+}
+
+bool Pawn::checkValidCoordinates(short row, short col)
+{
+    if(row < 0 || row > 7 || col < 0 || col > 14)
+        exit (1);
+    return true;
+}
+
+bool Pawn::isQueen() const
+{
+    if( queen )
+        return true;
+
+    return false;
+}
+
+short Pawn::getX() const
+{
+    return x;
+}
+
+short Pawn::getY() const
+{
+    return y;
+}
+
+char Pawn::getType() const
+{
+    return type;
+}
+
+short Pawn::getPlayer() const
+{
+    return player;
+}
+
+Pawn Pawn::operator = ( const Pawn& p)
+{
+    type   = p.type;
+    queen  = p.queen;
+    player = p.player;
+
+    return *this;
+}
+
+/// End of Pawn class implementation //////////////////////////////////////////
+
+/// Start Board class implementation //////////////////////////////////////////
+///
+Board::Board()
+{
+    for( short i = ( ROWS - 1 ); i >= 0; --i )
+        for( short j = 0; j < COLS; ++j )
+            board[ i ][ j ].setValues( 'e', i, j );
+    updatePieceLeft();
+
+    head = nullptr;
+    eval = evalutation();
+}
+
+Board::Board( char b[ROWS][COLS] )
+{
+    for( short i = ( ROWS - 1 ); i >= 0; --i )
+        for( short j = 0; j < COLS; ++j )
+            board[ i ][ j ].setValues( b[ i ][ j ], i, j );
+    updatePieceLeft();
+
+    head = nullptr;
+    eval = evalutation();
+}
+
+Board::Board( Board& source )
+{
+    for( short i = ( ROWS - 1 ); i >= 0; --i )
+        for( short j = 0; j < COLS; ++j )
+            board[ i ][ j ].setValues(source.getPawn(i, j).getType(), i, j );
+
+    updatePieceLeft();
+    head = nullptr;
+    eval = evalutation();
+}
+
+Board& Board::operator=( const Board& b )
+{
+    for(short i(ROWS - 1); i >= 0; --i)
+        for(short j(0); j < COLS; ++j)
+            board[i][j].setValues(b.board[i][j].getType(), i, j);
+    eval = b.eval;
+    xLeft = b.xLeft;
+    oLeft = b.oLeft;
+    xKing = b.xKing;
+    oKing = b.oKing;
+
+    return *this;
+}
+
+Pawn& Board::getPawn( short row, short col )
+{
+    return board[ row ][ col ];
+}
+
+void Board::printBoard()
+{
+    cout << "---------------"<< endl;
+    for( short i = ( ROWS - 1 ); i >= 0; --i )
+    {
+         for( short j = 0; j < COLS; ++j )
+            board[ i ][ j ].getType() == 'e' ? cout << ' ' :  cout << board[ i ][ j ].getType();
+
+         cout << endl;
+    }
+    cout << "---------------\n"<< endl;
+}
+
+void Board::move(Pawn& piece,short row, short col)
+{
+    Pawn support(board[row][col]);
+
+    board[row][col] = piece;
+    piece = support;
+
+    if( row == (ROWS - 1) || row == 0 )
+        board[row][col].setQueen();
+}
+
+void Board::updatePieceLeft()
+{
+    xLeft = xKing = 0;
+    oLeft = oKing = 0;
+    for( short i = ( ROWS - 1 ); i >= 0; --i )
+    {
+        for( short j = 0; j < COLS; ++j )
+        {
+            switch ( board[ i ][ j ].getType())
+            {
+                case 'x':
+                     ++xLeft;
+                     break;
+                case 'X':
+                    ++xKing;
+                    break;
+
+                case 'o':
+                    ++oLeft;
+                    break;
+                case 'O':
+                    ++oKing;
+                    break;
+
+                case 'e':
+                    break;
+
+                default:
+                    throw player_exception { player_exception::missing_file, "Invalid character in board loaded!!..." };
+            }
+        }
+    }
+
+    if( ( ( xLeft + xKing ) + ( oLeft + oKing ) ) > MPED )
+        throw player_exception { player_exception::invalid_board, "To many pieces in the loaded board!!..." };
+}
+
+void Board::prepend( BoardList& cell, const Board& moved )
+{
+    BoardList newOne = new BoardCell;
+    newOne->movedBoard = moved;
+    newOne->nextMove = cell;
+    cell = newOne;
+}
+
+void Board::append( BoardList& cell, const Board& moved )
+{
+    if( cell == nullptr )
+        prepend( cell, moved );
+    else
+        append( cell->nextMove, moved );
+}
+
+short Board::getXLeft()
+{
+    return xLeft;
+}
+
+
+short Board::getOLeft()
+{
+    return oLeft;
+}
+
+short Board::wins()
+{
+    if( ( oLeft + oKing ) == 0 )
+        return 1;
+    else if( ( xLeft + xKing ) == 0 )
+        return 2;
+
+    return 0;
+}
+
+float Board::evalutation()
+{
+  float mult = 0.5f;
+  float res = ( ( float )oLeft - ( float )xLeft + ( oKing * mult - xKing * mult ) );
+  return res;
+}
+
+void Board::setScore( float n )
+{
+    eval = n;
+}
+
+void Board::traverseRight( short start, short stop, short step, const Pawn& pawn, short right,  std::pair< short, short > lastPos )
+{
+    bool eatable = false;
+    bool moved   = false;
+    bool blocked = false;
+
+    for( short row = start; row < ROWS && row != stop && !moved; row = (short)(row + step) )
+    {
+        if( right >= COLS )
+            break;
+
+        Pawn current = getPawn( row, right );
+        if( current.getType() == 'e' && !blocked )
+        {
+            Board choice = *this;
+            choice.move( choice.getPawn( pawn.getY(), pawn.getX()), current.getY(), current.getX() );
+            if( eatable )
+            {
+                choice.getPawn( lastPos.first, lastPos.second ).deletePawn();
+                choice.updatePieceLeft();
+            }
+            append( head, choice );
+            moved = true;
+        }
+        else if( current.getPlayer() == pawn.getPlayer() || ( current.isQueen() && !pawn.isQueen() ) )
+            blocked = true;
+        else
+        {
+            eatable = true;
+            lastPos.first = current.getY();
+            lastPos.second = current.getX();
+        }
+
+        right = (short)(right + 2);
+    }
+}
+
+void Board::traverseLeft( short start, short stop, short step, const Pawn& pawn, short left, std::pair< short, short > lastPos )
+{
+    bool eatable = false;
+    bool moved   = false;
+    bool blocked = false;
+
+    for( short row = start; row < ROWS && row != stop && !moved; row = (short)( row + step ) )
+    {
+        if( left < 0 )
+            break;
+
+        Pawn current = getPawn( row, left );
+        if( current.getType() == 'e' && !blocked )
+        {
+            Board choice = *this;
+            // cout << "SIZE: " << sizeof( choice ) << endl;
+            choice.move( choice.getPawn( pawn.getY(), pawn.getX() ), current.getY(), current.getX() );
+
+            if( eatable )
+            {
+                choice.getPawn( lastPos.first, lastPos.second ).deletePawn();
+                choice.updatePieceLeft();
+            }
+            append( head, choice );
+            moved = true ;
+        }
+        else if( ( current.getPlayer() == pawn.getPlayer() ) || ( current.isQueen() && !pawn.isQueen() ) )
+            blocked = true;
+        else
+        {
+            eatable = true;
+            lastPos.first = current.getY();
+            lastPos.second = current.getX();
+        }
+
+        left = ( short )( left + 2 );
+    }
+}
+
+void Board::getValidMoves( Pawn& p )
+{
+    short   left  = (short)(p.getX() - 2);
+    short   right = (short)(p.getX() + 2);
+    short   row   = p.getY();
+
+    if( p.getType() == 'x' || p.isQueen() )
+    {
+        traverseLeft ( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, left,  std::pair<short, short>( 0, 0 ) );
+        traverseRight( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, right, std::pair<short, short>( 0, 0 ) );
+    }
+    if( p.getType() == 'o' || p.isQueen() )
+    {
+        traverseLeft ( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, left,  std::pair<short, short>( 0, 0 ) );
+        traverseRight( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, right, std::pair<short, short>( 0, 0 ) );
+    }
+}
+
+void Board::getAllMoves( short player )
+{
+    for(short i(ROWS - 1); i >= 0; --i)
+        for(short j(0); j < COLS; ++j)
+            if( board[i][j].getPlayer() == player )
+                getValidMoves( board[ i ][ j ] );
+}
+
+float Board::getScore()
+{
+    return eval;
+}
+
+void Board::destroy( BoardList& cell ) const
+{
+    if( cell->nextMove != nullptr )
+        destroy( cell->nextMove );
+    else if(cell->movedBoard.head)
+        destroy( cell->movedBoard.head );
+    else
+        delete cell;
+}
+
+
+/// End Board class implementation ////////////////////////////////////////////
 
 /// Player class implementation ///////////////////////////////////////////////
 
@@ -130,9 +557,12 @@ Player::Player( int player_nr )
     if( player_nr != 1 && player_nr != 2 ) throw player_exception{ player_exception::index_out_of_bounds, "player_nr is neither player1 or player2 in Player constructor!!" };
     pimpl = new Impl;
 
-    pimpl->nPLayer = (short) player_nr;
-    pimpl->head    = nullptr;
-    pimpl->tail    = nullptr;
+    pimpl->nPLayer              = (short) player_nr;
+    pimpl->head                 = nullptr;
+    pimpl->tail                 = nullptr;
+    pimpl->garbageCollector     = nullptr;
+    pimpl->garbageCollectorHead = nullptr;
+    pimpl->garbageCollectorTail = nullptr;
 }
 
 Player::~Player()
@@ -146,7 +576,7 @@ Player::Player( const Player& p )
     *this = p;
 }
 
-Player& Player::operator=( const Player& pl )
+Player& Player::operator = ( const Player& pl )
 {
     if( this != &pl )
     {
@@ -169,9 +599,9 @@ void Player::init_board( const string& filename ) const
     ofstream initFile;
 
     initFile.open( filename );
-    for( int rows = 0; ( initFile.good() ) && ( rows < ROWS ); ++rows )
+    for( short rows = 0; ( initFile.good() ) && ( rows < ROWS ); ++rows )
     {
-        for( int cols = 0; cols < COLS; ++cols )
+        for( short cols = 0; cols < COLS; ++cols )
         {
             if( rows == 3 || rows == 4 )
                 initFile << ' ';
@@ -195,11 +625,11 @@ void Player::load_board( const string &filename )
 
     loadFile.open( filename );
     if( !loadFile.is_open() ) throw player_exception{ player_exception::missing_file, "Missing file in load_board() func!!..." };
-    char supportBoard[ROWS][COLS];
 
+    char supportBoard[ROWS][COLS];
     string str;
     Pcell newPcell = new Cell;
-    int i = ( ROWS - 1 );
+    short i = ( ROWS - 1 );
     while( getline( loadFile, str ) )
     {
         if( str.length() != 15 ) throw player_exception { player_exception::missing_file, "Invalid length in load_board() func..." };
@@ -215,14 +645,35 @@ void Player::load_board( const string &filename )
     }
     loadFile.close();
 
-    newPcell->b = new Board(supportBoard);
-    newPcell->b->initHead();
-    newPcell->b->updatePieceLeft();
+    Board sup(supportBoard);
+    newPcell->b = sup;
+    newPcell->b.updatePieceLeft();
 
     if( pimpl->validBoard( newPcell ) )
         pimpl->append( newPcell );
+}
+
+void Player::move()
+{
+    Pboard bestMove(nullptr);
+    pimpl->garbageCollector = nullptr;
+    pimpl->garbageCollectorHead = nullptr;
+    pimpl->garbageCollectorTail = nullptr;
+
+    if( pimpl->nPLayer == 1 )
+       bestMove =  pimpl->minimax( &pimpl->tail->b, 4, true, MINF, PINF );
     else
-        delete newPcell->b;
+        bestMove = pimpl->minimax( &pimpl->tail->b, 4, false, MINF, PINF );
+    bestMove->printBoard();
+
+    Pcell ciao = new Cell;
+
+    ciao->b = *bestMove;
+    pimpl->validBoard( ciao );
+    pimpl->append( ciao );
+
+    if( pimpl->garbageCollector != nullptr )
+        pimpl->destroyBin(pimpl->garbageCollector);
 }
 
 void Player::store_board( const string &filename, int history_offset ) const
@@ -232,10 +683,10 @@ void Player::store_board( const string &filename, int history_offset ) const
     ofstream outputFile;
     outputFile.open( filename );
 
-    for( int i = ( ROWS - 1 ); i >= 0; --i )
+    for( short i = ( ROWS - 1 ); i >= 0; --i )
     {
-        for( int j = 0; j < COLS; ++j )
-            moveMe->b->getPawn(i, j).getType() == 'e' ? outputFile << ' ' : outputFile << moveMe->b->getPawn(i, j).getType();
+        for( short j = 0; j < COLS; ++j )
+            moveMe->b.getPawn(i, j).getType() == 'e' ? outputFile << ' ' : outputFile << moveMe->b.getPawn(i, j).getType();
 
         if( i > 0 )
             outputFile << endl;
@@ -248,22 +699,7 @@ Player::piece Player::operator()( int r, int c, int history_offset ) const
     if( ( r < 0 || r > 7 ) || ( c < 0 || c > 14) ) throw player_exception { player_exception::index_out_of_bounds, "Wrong coordinates... out of range in operator() func..." };
 
     Pcell moveMe = pimpl->bringPcell( history_offset );
-    return pimpl->findEnum( moveMe->b->getPawn(r, c).getType());
-}
-
-void Player::move()
-{
-    Pair deleteMe;
-
-    if( pimpl->nPLayer == 1 )
-        deleteMe = pimpl->minimax( pimpl->tail->b, 2, true );
-    else
-        deleteMe = pimpl->minimax( pimpl->tail->b, 2, false );
-
-    Pcell ciao = new Cell;
-    ciao->b = deleteMe.pio;
-    pimpl->validBoard( ciao );
-    pimpl->append( ciao );
+    return pimpl->findEnum( moveMe->b.getPawn( (short)r, (short)c ).getType());
 }
 
 void Player::pop()
@@ -290,7 +726,7 @@ int Player::recurrence() const
 {
     if( pimpl->tail == nullptr ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in recurrence() func..." };
 
-    int counter = 1;
+    short counter = 1;
     bool different;
     Pcell reference = pimpl->tail;
     Pcell moveMe = pimpl->tail->prev;
@@ -298,9 +734,9 @@ int Player::recurrence() const
     while( moveMe != nullptr )
     {
         different = false;
-        for( int i = ( ROWS - 1 ); i >= 0 && !different; --i )
-            for( int j = 0; j < COLS && !different; ++j )
-                if( reference->b->getPawn(i, j).getType() != moveMe->b->getPawn(i, j).getType())
+        for( short i = ( ROWS - 1 ); i >= 0 && !different; --i )
+            for( short j = 0; j < COLS && !different; ++j )
+                if( reference->b.getPawn(i, j).getType() != moveMe->b.getPawn(i, j).getType())
                     different = true;
 
         if( !different )
@@ -320,58 +756,8 @@ bool Player::wins( int player_nr ) const
 }
 
 /// End of Player Implementation //////////////////////////////////////////////
-
+///
 /// Impl struct implementation ////////////////////////////////////////////////
-
-void Player::Impl::destroy( Pcell node ) const
-{
-    if( node )
-    {
-        destroy( node->next );
-        delete node;
-    }
-}
-
-void Player::Impl::append( Pcell newPcell )
-{
-    if( head == nullptr )
-    {
-        head = newPcell;
-        tail = newPcell;
-        newPcell->prev = nullptr;
-    }
-    else
-    {
-        tail->next = newPcell;
-        newPcell->prev = tail;
-        tail = newPcell;
-    }
-
-    newPcell->next = nullptr;
-}
-
-Pcell Player::Impl::copy( const Pcell& node )
-{
-    Pcell storeMe = new Cell;
-    storeMe->b = new Board(*node->b);
-
-    return storeMe;
-}
-
-Pcell Player::Impl::bringPcell( const int& history_offset )
-{
-    int history = 0;
-    Pcell moveMe = this->tail;
-
-    while( ( moveMe->prev != nullptr ) && ( history != history_offset ) )
-    {
-        moveMe = moveMe->prev;
-        ++history;
-    }
-    if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size!..." };
-
-    return moveMe;
-}
 
 Player::piece Player::Impl::findEnum( const char &c )
 {
@@ -404,41 +790,41 @@ Player::piece Player::Impl::findEnum( const char &c )
 
 bool Player::Impl::validBoard( Pcell& node )
 {
-    for( int i = ( ROWS - 1 ); i >= 0; --i )
+    for( short i = ( ROWS - 1 ); i >= 0; --i )
     {
-        for( int j = 0; j < COLS; ++j )
+        for( short j = 0; j < COLS; ++j )
         {
-            if( ( i % 2 == 1 ) && ( j % 4 != 0 ) && node->b->getPawn(i, j).getType() != 'e' )
+            if( ( i % 2 == 1 ) && ( j % 4 != 0 ) && node->b.getPawn(i, j).getType() != 'e' )
                 throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
-            else if( ( i % 2 == 0 ) && ( (j - 2) % 4 != 0 ) && node->b->getPawn(i, j).getType() != 'e' )
+            else if( ( i % 2 == 0 ) && ( (j - 2) % 4 != 0 ) && node->b.getPawn(i, j).getType() != 'e' )
                 throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
         }
     }
     return true;
 }
 
-void Player::Impl::printBoard( const Pcell& printPcell )
+void Player::Impl::printBoard( const Pcell& printCell )
 {
     cout << "---------------"<< endl;
-    for( int i = ( ROWS - 1 ); i >= 0; --i )
+    for( short i = ( ROWS - 1 ); i >= 0; --i )
     {
-         for( int j = 0; j < COLS; ++j )
-            printPcell->b->getPawn(i, j).getType() == 'e' ? cout << ' ' : cout <<  printPcell->b->getPawn(i, j).getType();
+         for( short j = 0; j < COLS; ++j )
+            printCell->b.getPawn(i, j).getType() == 'e' ? cout << ' ' : cout <<  printCell->b.getPawn(i, j).getType();
 
          cout << endl;
     }
     cout << "---------------\n"<< endl;
 
-    printMemBoard( printPcell );
+    printMemBoard( printCell );
 }
 
-void Player::Impl::printMemBoard( const Pcell& printPcell )
+void Player::Impl::printMemBoard( const Pcell& printCell )
 {
     cout << "---------------"<< endl;
-    for( int i = (ROWS - 1); i >= 0; --i )
+    for( short i = (ROWS - 1); i >= 0; --i )
     {
-        for( int j = 0; j < COLS; ++j )
-           cout <<  printPcell->b->getPawn(i, j).getType();
+        for( short j = 0; j < COLS; ++j )
+           cout <<  printCell->b.getPawn(i, j).getType();
 
         cout << endl;
     }
@@ -467,280 +853,22 @@ void Player::Impl::listRevBoards()
     }
 }
 
-/// End of Impl implementation ////////////////////////////////////////////////
-
-/// Start of Pawn class implementation ////////////////////////////////////////
-
-Pawn::Pawn()
+Pcell Player::Impl::bringPcell( const int& history_offset )
 {
-    x     = 0;
-    y     = 0;
-    type  = 'e';
-    queen = false;
-}
+    short history = 0;
+    Pcell moveMe = this->tail;
 
-Pawn::Pawn( char t, int row, int col, int playerNr )
-{
-    type   = t;
-    x      = col;
-    y      = row;
-    player = playerNr;
-
-    if(type == 'X' || type == 'O')
-        queen = true;
-}
-
-Pawn::Pawn( Pawn& p )
-{
-    x      = p.x;
-    y      = p.y;
-    type   = p.type;
-    player = p.player;
-    queen  = p.queen;
-}
-
-void Pawn::setValues(char t, int row, int col)
-{
-    type = t;
-    setCoordinates(row, col);
-
-    if(type == 'x' || type == 'X')
-        player = 1;
-    else if(type == 'o' || type == 'O')
-        player = 2;
-    else
-        player = 0;
-
-    if(type == 'X' || type == 'O')
-        queen = true;
-    else
-        queen = false;
-}
-
-void Pawn::printType()
-{
-    cout << type << endl;
-}
-
-void Pawn::deletePawn()
-{
-    type   = 'e';
-    player =  0;
-    queen  = false;
-}
-
-void Pawn::setQueen()
-{
-    queen = true;
-    type == 'x' ? type = 'X': type = 'O';
-}
-
-void Pawn::setCoordinates(int row, int col)
-{
-    if(checkValidCoordinates(row, col))
+    while( ( moveMe->prev != nullptr ) && ( history != history_offset ) )
     {
-        x = col;
-        y = row;
+        moveMe = moveMe->prev;
+        ++history;
     }
+    if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size!..." };
+
+    return moveMe;
 }
 
-bool Pawn::checkValidCoordinates(int row, int col)
-{
-    if(row < 0 || row > 7 || col < 0 || col > 14)
-        exit (1);
-    return true;
-}
-
-bool Pawn::isQueen()
-{
-    if(queen)
-        return true;
-
-    return false;
-}
-
-int Pawn::getX()
-{
-    return x;
-}
-
-int Pawn::getY()
-{
-    return y;
-}
-
-char Pawn::getType()
-{
-    return type;
-}
-
-int Pawn::getPlayer()
-{
-    return player;
-}
-
-Pawn Pawn::operator = (Pawn& p)
-{
-    type   = p.type;
-    queen  = p.queen;
-    player = p.player;
-
-    return *this;
-}
-
-/// End of Pawn class implementation //////////////////////////////////////////
-
-/// Start Board class implementation //////////////////////////////////////////
-
-Board::Board( char b[ROWS][COLS] )
-{
-    for( int i = ( ROWS - 1 ); i >= 0; --i )
-        for( int j = 0; j < COLS; ++j )
-            board[ i ][ j ].setValues( b[ i ][ j ], i, j );
-    updatePieceLeft();
-}
-
-Board::Board( Board* source )
-{
-    for( int i = ( ROWS - 1 ); i >= 0; --i )
-        for( int j = 0; j < COLS; ++j )
-            board[ i ][ j ].setValues( source->board[ i ][ j ].getType(), i, j );
-    updatePieceLeft();
-}
-
-Pawn& Board::getPawn( int row, int col )
-{
-    return board[ row ][ col ];
-}
-
-void Board::printBoard()
-{
-    cout << "---------------"<< endl;
-    for( int i = ( ROWS - 1 ); i >= 0; --i )
-    {
-         for( int j = 0; j < COLS; ++j )
-            board[ i ][ j ].getType() == 'e' ? cout << ' ' :  cout << board[ i ][ j ].getType();
-
-         cout << endl;
-    }
-    cout << "---------------\n"<< endl;
-}
-
-void Board::move(Pawn& piece,int row, int col)
-{
-    Pawn support(board[row][col]);
-
-    board[row][col] = piece;
-    piece = support;
-
-    if( row == (ROWS - 1) || row == 0 )
-        board[row][col].setQueen();
-}
-
-void Board::updatePieceLeft()
-{
-    xLeft = xKing = 0;
-    oLeft = oKing = 0;
-    for( int i = ( ROWS - 1 ); i >= 0; --i )
-    {
-        for( int j = 0; j < COLS; ++j )
-        {
-            switch ( board[ i ][ j ].getType())
-            {
-                case 'x':
-                     ++xLeft;
-                     break;
-                case 'X':
-                    ++xKing;
-                    break;
-
-                case 'o':
-                    ++oLeft;
-                    break;
-                case 'O':
-                    ++oKing;
-                    break;
-
-                case 'e':
-                    break;
-
-                default:
-                    throw player_exception { player_exception::missing_file, "Invalid character in board loaded!!..." };
-            }
-        }
-    }
-
-    if( ( ( xLeft + xKing ) + ( oLeft + oKing ) ) > MPED )
-        throw player_exception { player_exception::invalid_board, "To many pieces in the loaded board!!..." };
-}
-
-void Board::append( Pcell& newCell, int player )
-{
-    if( player == 1 )
-    {
-        if( xHead == nullptr )
-        {
-            xHead = newCell;
-            xTail = newCell;
-            newCell->prev = nullptr;
-        }
-        else
-        {
-            xTail->next = newCell;
-            newCell->prev = xTail;
-            xTail = newCell;
-        }
-
-        xTail->next = nullptr;
-    }
-    else
-    {
-        if( oHead == nullptr )
-        {
-            oHead = newCell;
-            oTail = newCell;
-            newCell->prev = nullptr;
-        }
-        else
-        {
-            oTail->next = newCell;
-            newCell->prev = oTail;
-            oTail = newCell;
-        }
-
-        oTail->next = nullptr;
-    }
-}
-
-void Board::initHead()
-{
-    xHead = nullptr;
-    oHead = nullptr;
-    xTail = nullptr;
-    oTail = nullptr;
-}
-
-int Board::getXLeft()
-{
-    return xLeft;
-}
-
-
-int Board::getOLeft()
-{
-    return oLeft;
-}
-
-int Board::wins()
-{
-    if( ( oLeft + oKing ) == 0 )
-        return 1;
-    else if( ( xLeft + xKing ) == 0 )
-        return 2;
-
-    return 0;
-}
-void Board::destroy( Pcell node ) const
+void Player::Impl::destroy( Pcell& node ) const
 {
     if( node )
     {
@@ -749,186 +877,144 @@ void Board::destroy( Pcell node ) const
     }
 }
 
-Pcell Board::getValidMoves( Pawn& p )
+void Player::Impl::append( Pcell newPcell )
 {
-    int   left  = p.getX() - 2;
-    int   right = p.getX() + 2;
-    int   row   = p.getY();
-
-    if( p.getType() == 'x' || p.isQueen() )
+    if( head == nullptr )
     {
-        traverseLeft ( row + 1, std::max( row + 3, -1 ), 1, p, left,  std::pair<int, int>( 0, 0 ) );
-        traverseRight( row + 1, std::max( row + 3, -1 ), 1, p, right, std::pair<int, int>( 0, 0 ) );
+        head = newPcell;
+        tail = newPcell;
+        newPcell->prev = nullptr;
     }
-    if( p.getType() == 'o' || p.isQueen() )
+    else
     {
-        traverseLeft ( row - 1, std::max( row - 3, -1 ), -1, p, left,  std::pair<int, int>( 0, 0 ) );
-        traverseRight( row - 1, std::max( row - 3, -1 ), -1, p, right, std::pair<int, int>( 0, 0 ) );
+        tail->next = newPcell;
+        newPcell->prev = tail;
+        tail = newPcell;
     }
 
-    if( p.getPlayer() == 1 )
-        return xHead;
-    return oHead;
+    newPcell->next = nullptr;
 }
 
-void Board::traverseLeft( int start, int stop, int step, Pawn pawn, int left, std::pair< int, int > lastPos )
+Pcell Player::Impl::copy( Pcell& node )
 {
-    bool eatable = false;
-    bool moved   = false;
-    bool blocked = false;
+    Pcell storeMe = new Cell;
+    storeMe->b = node->b;
 
-    for( int row = start; row < ROWS && row != stop && !moved; row += step )
-    {
-        if( left < 0 )
-            break;
-
-        Pawn current = getPawn( row, left );
-        if( current.getType() == 'e' && !blocked )
-        {
-            Pcell newNode = new Cell;
-            newNode->b = new Board( *this );
-            newNode->b->move( newNode->b->getPawn( pawn.getY(), pawn.getX() ), current.getY(), current.getX() );
-
-            if( eatable )
-            {
-                newNode->b->getPawn( lastPos.first, lastPos.second ).deletePawn();
-                newNode->b->updatePieceLeft();
-            }
-            append( newNode, pawn.getPlayer() );
-            moved = true ;
-        }
-        else if( ( current.getPlayer() == pawn.getPlayer() ) || ( current.isQueen() && !pawn.isQueen() ) )
-            blocked = true;
-        else
-        {
-            eatable = true;
-            lastPos.first = current.getY();
-            lastPos.second = current.getX();
-        }
-
-        left -= 2;
-    }
+    return storeMe;
 }
 
-void Board::traverseRight( int start, int stop, int step, Pawn pawn, int right,  std::pair< int, int > lastPos )
+Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float alpha, float beta )
 {
-    bool eatable = false;
-    bool moved   = false;
-    bool blocked = false;
+    if(depth == 0 || base->wins() != 0)
+        return base;
 
-
-    for( int row = start; row < ROWS && row != stop && !moved; row += step )
+    if( maxPg )
     {
-            if( right >= COLS )
-                break;
+        Pboard eval(nullptr);
+        float maxEval = MINF;
+        BoardList bestMove(nullptr);
+        base->getAllMoves(1);
+        BoardList move = base->head;
 
-            Pawn current = getPawn( row, right );
-            if( current.getType() == 'e' && !blocked )
+        if( head != nullptr )
+            appendToBin(base->head);
+
+        for( ; move != nullptr; move = move->nextMove )
+        {
+            eval = minimax( &move->movedBoard, (short)( depth - 1 ), false, alpha, beta );
+            if( eval )
             {
-                Pcell newNode = new Cell;
-                newNode->b = new Board( *this );
-                newNode->b->move( newNode->b->getPawn( pawn.getY(), pawn.getX()), current.getY(), current.getX() );
+                maxEval = std::max( maxEval, eval->getScore() );
+                alpha = std::max( alpha, maxEval );
+                if (beta <= alpha)
+                    break;
 
-                if( eatable )
+                if( maxEval == eval->getScore() )
                 {
-                    newNode->b->getPawn( lastPos.first, lastPos.second ).deletePawn();
-                    newNode->b->updatePieceLeft();
-                }
-                append( newNode, pawn.getPlayer() );
-                moved = true;
-            }
-            else if( current.getPlayer() == pawn.getPlayer() || ( current.isQueen() && !pawn.isQueen() ) )
-                blocked = true;
-            else
-            {
-                eatable = true;
-                lastPos.first = current.getY();
-                lastPos.second = current.getX();
-            }
-
-            right += 2;
-    }
-}
-
-double Board::evalutation()
-{
-    return ( ( xLeft - oLeft ) + ( oKing * 1.5 - xKing * 1.5 ) );
-}
-
-Pair Player::Impl::minimax( Pboard& board, int depth, bool maxPlayer )
-{
-    if( ( depth == 0 ) || ( board->wins() != 0 ) )
-    {
-        Pair bestMove;
-        bestMove.score = board->evalutation();
-        bestMove.pio   = board;
-        return bestMove;
-    }
-
-    if( maxPlayer )
-    {
-        Pboard bestBoard = board;
-        Pair evaluation;
-        double maxEval = MINF;
-        for( int i = ( ROWS - 1 ); i >= 0; --i )
-        {
-            for( int j = 0; j < COLS; ++j )
-            {
-                if( board->getPawn( i, j ).getPlayer() == 1 )
-                {
-                    Pcell currentPiece = board->getValidMoves( board->getPawn( i, j ) );
-                    if( currentPiece )
-                    {
-                        while( currentPiece != nullptr )
-                        {
-                            evaluation = minimax( currentPiece->b, ( depth - 1 ), false );
-                            maxEval    = std::max( maxEval, evaluation.score );
-
-                            if( maxEval == evaluation.score )
-                                bestBoard = currentPiece->b;
-                            currentPiece = currentPiece->next;
-                        }
-                    }
+                    bestMove = move;
+                    bestMove->movedBoard.setScore(eval->getScore());
                 }
             }
         }
-        Pair bestMove;
-        bestMove.pio   = bestBoard;
-        bestMove.score = maxEval;
-        return bestMove;
+        if( bestMove == nullptr )
+            return base;
+        return &bestMove->movedBoard;
     }
-
-    Pboard bestBoard = board;
-    Pair evaluation;
-    double minEval = PINF;
-    for( int i = ( ROWS - 1 ); i >= 0; --i )
+    else
     {
-        for( int j = 0; j < COLS; ++j )
+        Pboard eval( nullptr );
+        BoardList bestMove( nullptr );
+        float minEval = PINF;
+        base->getAllMoves(2);
+        BoardList move = base->head;
+
+        if( head != nullptr )
+            appendToBin(base->head);
+
+        for(;move != nullptr; move = move->nextMove)
         {
-            if( board->getPawn( i, j ).getPlayer() == 2 )
+            eval = minimax( &move->movedBoard, (short)( depth - 1 ), true, alpha, beta );
+
+            if( eval )
             {
-                Pcell currentPiece = board->getValidMoves( board->getPawn( i, j ) );
-
-                if( currentPiece != nullptr )
+                minEval = std::min( minEval, eval->getScore() );
+                beta = std::min( beta, minEval );
+                if( beta <= alpha )
+                    break;
+                if( minEval == eval->getScore())
                 {
-                    while( currentPiece != nullptr )
-                    {
-                        evaluation = minimax(  currentPiece->b, ( depth - 1 ), true );
-                        minEval         = std::min( minEval, evaluation.score );
-
-                        if( minEval == evaluation.score )
-                            bestBoard = currentPiece->b;
-                        currentPiece = currentPiece->next;
-                    }
+                    bestMove = move;
+                    bestMove->movedBoard.setScore(eval->getScore());
                 }
-            }
-        }
-    }
 
-    Pair bestMove;
-    bestMove.pio   = bestBoard;
-    bestMove.score = minEval;
-    return bestMove;
+            }
+
+        }
+        if( bestMove == nullptr )
+            return base;
+        return &bestMove->movedBoard;
+    }
 }
 
-/// End Board class implementation ////////////////////////////////////////////
+/// End of Impl implementation ////////////////////////////////////////////////
+///
+void Player::Impl::appendToBin(BoardList& cell)
+{
+    if(garbageCollector == nullptr)
+    {
+        garbageCollector = new Bin;
+        garbageCollector->head = cell;
+        garbageCollectorHead = garbageCollector;
+        garbageCollectorTail = garbageCollector;
+        garbageCollectorTail->nextTrash = nullptr;
+    }
+    else
+    {
+        Bin* newTrash = new Bin;
+        newTrash->head = cell;
+        newTrash->nextTrash = garbageCollectorHead;
+        garbageCollectorHead = newTrash;
+        garbageCollector = garbageCollectorHead;
+    }
+}
+
+void Player::Impl::destroyTrash( BoardList& tHead )
+{
+    if( tHead )
+    {
+        destroyTrash( tHead->nextMove );
+        delete head;
+    }
+}
+
+void Player::Impl::destroyBin( Pbin& bin )
+{
+    if( bin )
+    {
+        if( bin->head )
+            destroyTrash(bin->head);
+
+        destroyBin(bin->nextTrash);
+        delete bin;
+    }
+}

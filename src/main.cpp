@@ -23,7 +23,7 @@ int main( int argc, char** argv )
         cout << "Board initialized correctly!" << endl;
 
         int i = 1;
-        while( i <= 50 )
+        while( i <= 1000 )
         {
             board_name =  "boards/board_" + std::to_string( i++ ) + ".txt";
             cout << "T2) Trying to load the board...\t\t";
@@ -33,7 +33,7 @@ int main( int argc, char** argv )
                 p2.load_board( board_name );
             cout << "Board loaded correctly!" << endl;
 
-            cout << "Moving the pawns...\t\t";
+            cout << "Moving the pawns...\n\n";
             if( i % 2 )
                 p1.move();
             else
