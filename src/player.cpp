@@ -1,5 +1,4 @@
 #include "player.hpp"
-#include <cstddef>
 #include <iostream>
 
 #define ROWS    8
@@ -138,8 +137,8 @@ struct Player::Impl
     Pboard minimax( const Pboard&, short, bool, float, float );
     bool   validBoard( Pcell& );
     void   appendToBin( BoardList& );
-    void   destroyBin( Pbin& );
-    void   destroyTrash( BoardList& );
+    void   destroyBin( Pbin );
+    void   destroyTrash( BoardList );
 };
 
 /// Start of Pawn class implementation ////////////////////////////////////////
@@ -661,9 +660,9 @@ void Player::move()
     pimpl->garbageCollectorTail = nullptr;
 
     if( pimpl->nPLayer == 1 )
-       bestMove =  pimpl->minimax( &pimpl->tail->b, 4, true, MINF, PINF );
+       bestMove =  pimpl->minimax( &pimpl->tail->b, 8, true, MINF, PINF );
     else
-        bestMove = pimpl->minimax( &pimpl->tail->b, 4, false, MINF, PINF );
+        bestMove = pimpl->minimax( &pimpl->tail->b, 8, false, MINF, PINF );
     bestMove->printBoard();
 
     Pcell ciao = new Cell;
@@ -712,7 +711,6 @@ void Player::pop()
         pimpl->destroy( pimpl->tail );
         pimpl->tail = prevTail;
         prevTail->next = nullptr;
-        delete prevTail;
     }
     else
     {
@@ -916,8 +914,7 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
         base->getAllMoves(1);
         BoardList move = base->head;
 
-        if( head != nullptr )
-            appendToBin(base->head);
+        appendToBin(base->head);
 
         for( ; move != nullptr; move = move->nextMove )
         {
@@ -948,12 +945,11 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
         base->getAllMoves(2);
         BoardList move = base->head;
 
-        if( head != nullptr )
-            appendToBin(base->head);
+        appendToBin(base->head);
 
         for(;move != nullptr; move = move->nextMove)
         {
-            eval = minimax( &move->movedBoard, (short)( depth - 1 ), true, alpha, beta );
+            eval = minimax( &move->movedBoard, (short )( depth - 1 ), true, alpha, beta );
 
             if( eval )
             {
@@ -972,49 +968,50 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
         }
         if( bestMove == nullptr )
             return base;
+
         return &bestMove->movedBoard;
     }
 }
 
 /// End of Impl implementation ////////////////////////////////////////////////
 ///
-void Player::Impl::appendToBin(BoardList& cell)
+void Player::Impl::appendToBin( BoardList& cell )
 {
     if(garbageCollector == nullptr)
     {
-        garbageCollector = new Bin;
-        garbageCollector->head = cell;
-        garbageCollectorHead = garbageCollector;
-        garbageCollectorTail = garbageCollector;
+        garbageCollector                = new Bin;
+        garbageCollector->head          = cell;
+        garbageCollectorHead            = garbageCollector;
+        garbageCollectorTail            = garbageCollector;
         garbageCollectorTail->nextTrash = nullptr;
     }
     else
     {
-        Bin* newTrash = new Bin;
-        newTrash->head = cell;
-        newTrash->nextTrash = garbageCollectorHead;
+        Bin* newTrash        = new Bin;
+        newTrash->head       = cell;
+        newTrash->nextTrash  = garbageCollectorHead;
         garbageCollectorHead = newTrash;
-        garbageCollector = garbageCollectorHead;
+        garbageCollector     = garbageCollectorHead;
     }
 }
 
-void Player::Impl::destroyTrash( BoardList& tHead )
+void Player::Impl::destroyTrash( BoardList trashHead )
 {
-    if( tHead )
+    if( trashHead )
     {
-        destroyTrash( tHead->nextMove );
-        delete head;
+        destroyTrash( trashHead->nextMove );
+        delete trashHead;
     }
 }
 
-void Player::Impl::destroyBin( Pbin& bin )
+void Player::Impl::destroyBin( Pbin bin )
 {
     if( bin )
     {
         if( bin->head )
-            destroyTrash(bin->head);
+            destroyTrash( bin->head );
 
-        destroyBin(bin->nextTrash);
+        destroyBin( bin->nextTrash );
         delete bin;
     }
 }
