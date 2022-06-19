@@ -42,7 +42,6 @@ class Pawn
         bool isQueen() const;
         char getType() const;
         bool checkValidCoordinates( short, short );
-        void printType();
         void setQueen();
         short  getPlayer() const;
         void deletePawn();
@@ -192,11 +191,6 @@ void Pawn::setValues( const char& t, const short& row, const short& col)
         queen = true;
     else
         queen = false;
-}
-
-void Pawn::printType()
-{
-    cout << type << endl;
 }
 
 void Pawn::deletePawn()
@@ -640,7 +634,7 @@ void Player::load_board( const string &filename )
     short i        = ( ROWS - 1 );
     while( getline( loadFile, str ) )
     {
-        if( str.length() != 15 ) throw player_exception { player_exception::missing_file, "Invalid length in load_board() func..." };
+        if( str.length() != 15 ) throw player_exception { player_exception::invalid_board, "Invalid length in load_board() func..." };
         for( size_t j = 0; j < COLS; ++j )
         {
             if( (char)str.at( j ) == ' ')
@@ -653,20 +647,14 @@ void Player::load_board( const string &filename )
     Board sup(supportBoard);
     newPcell->b = sup;
     newPcell->b.updatePieceLeft();
-    if(!pimpl->validBoard( newPcell ) || newPcell->b.getXLeft() > 12 || newPcell->b.getOLeft() > 12 )
-    {
-        cout << "Bro Massa pezzi!!" << endl;
-        exit(0);
-    }
+    if(!pimpl->validBoard( newPcell ) || newPcell->b.getXLeft() > 12 || newPcell->b.getOLeft() > 12 ) throw player_exception { player_exception::invalid_board, "Invalid Board in load_board() func..." };
     pimpl->append( newPcell );
     valid_move() == true ? cout << "MOSSA VALIDA\n" : cout << "MOSSA NON VALIDA\n";
-    // pimpl->tail->b.printBoard();
 }
 
 bool Player::valid_move() const
 {
-    if(!pimpl->tail->prev)
-        return true;
+    if(!pimpl->tail->prev) throw player_exception { player_exception::index_out_of_bounds, "Too few boards in History in valid_move() func..." };
 
     // Caso in cui non ci siano nuove dame, controllo solo il percorso delle pedine
     short diff = 0;
@@ -744,6 +732,7 @@ bool Player::valid_move() const
 
 void Player::move()
 {
+    if(!pimpl->head) throw player_exception { player_exception::index_out_of_bounds, "Empty History in move() func..." };
     Pboard bestMove(nullptr);
     pimpl->garbageCollector     = nullptr;
     pimpl->garbageCollectorHead = nullptr;
@@ -824,7 +813,7 @@ int Player::recurrence() const
 
 bool Player::wins( int player_nr ) const
 {
-    if( pimpl->tail == nullptr || ( player_nr != 1 && player_nr != 2 ) ) throw player_exception { player_exception::index_out_of_bounds, "player_nr is neither 1 or 2, or empty history in wins() func..." };
+    if( pimpl->tail == nullptr ) throw player_exception { player_exception::index_out_of_bounds, "Empty history in wins() or loses() func..." };
     if(pimpl->tail->b.wins() == player_nr)
         return true;
     return false;
@@ -851,7 +840,7 @@ bool Player::loses() const
 ///
 /// Impl struct implementation ////////////////////////////////////////////////
 
-Player::piece Player::Impl::findEnum( const char &c )
+Player::piece Player::Impl::findEnum( const char& c )
 {
     Player::piece p = Player::x;
     switch( c )
@@ -870,6 +859,9 @@ Player::piece Player::Impl::findEnum( const char &c )
             break;
         case 'O':
             p = Player::O;
+            break;
+        default:
+            p = Player::e;
             break;
     }
     return p;
