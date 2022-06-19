@@ -17,12 +17,21 @@ int main(int argc, char **argv) {
     Player p1(player_nr);
     Player p2(2);
 
+    // p1.init_board(board_name);
+    // p1.load_board(board_name);
+    // board_name = "boards/board_2.txt";
+    // p1.load_board(board_name);
+    // board_name = "boards/board_3.txt";
+    // p1.load_board(board_name);
+    // board_name = "boards/board_4.txt";
+    // p1.load_board(board_name);
+
     cout << "\nT1) Creating the first board...\t\t";
     p1.init_board(board_name);
     cout << "Board initialized correctly!" << endl;
 
     int i = 1;
-    while (i <= 2000) {
+    while (i <= 50) {
       board_name = "boards/board_" + std::to_string(i++) + ".txt";
       cout << "T2) Trying to load the board...\t\t";
       if (i % 2)

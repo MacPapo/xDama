@@ -27,6 +27,7 @@ struct Bin
     Bin* nextTrash;
 };
 typedef Bin* Pbin;
+
 // Class Pawn definition
 class Pawn
 {
@@ -36,25 +37,24 @@ class Pawn
         Pawn( const char&, const short&, const short&, const short& );
         void setValues( const char&, const short&, const short& );
         void setCoordinates( const short&, const short& );
-        short  getX() const;
-        short  getY() const;
+        short  getCol() const;
+        short  getRow() const;
         bool isQueen() const;
         char getType() const;
         bool checkValidCoordinates( short, short );
-
         void printType();
-
         void setQueen();
         short  getPlayer() const;
         void deletePawn();
         Pawn operator = ( const Pawn& );
+        bool operator == ( const Pawn& );
 
     private:
+        bool queen;
         char type;
         short  player;
         short  x;
         short  y;
-        bool queen;
 };
 typedef Pawn* Pawn_t;
 
@@ -68,7 +68,7 @@ class Board
         Board& operator = ( const Board& );
         void   printBoard();
         Pawn&  getPawn( short, short );
-        void   move( Pawn& ,short row, short col );
+        void   move( Pawn& ,short, short );
         void   getAllMoves(short);
         void   getValidMoves( Pawn& );
         void   updatePieceLeft();
@@ -77,22 +77,25 @@ class Board
         void   destroy( BoardList& ) const;
         void   prepend( BoardList& cell, const Board& moved );
         void   append( BoardList& cell, const Board& moved);
-        short    wins();
-        short    getXLeft();
-        short    getOLeft();
-        float evalutation();
-        float getScore();
+        short  boardDifference();
+        short  wins();
+        short  getXLeft();
+        short  getOLeft();
+        short  getXKing();
+        short  getOKing();
+        float  evalutation();
+        float  getScore();
         void   setScore(float);
-
+        short  countDamaSpot(short);
         BoardList head;
 
     private:
+        short xLeft;
+        short oLeft;
+        short xKing;
+        short oKing;
+        float eval;
         Pawn  board[ ROWS ][ COLS ];
-        float  eval;
-        short   xLeft;
-        short   oLeft;
-        short   xKing;
-        short   oKing;
 };
 typedef Board* Pboard;
 
@@ -109,14 +112,13 @@ struct BoardCell
 {
     Board movedBoard;
     BoardList nextMove;
-
     void append(BoardList);
 };
 
 // Impl Definition
 struct Player::Impl
 {
-    short nPLayer;
+    short player_num;
 
     Pcell head;
     Pcell tail;
@@ -141,6 +143,12 @@ struct Player::Impl
     void   destroyTrash( BoardList );
 };
 
+struct Prediction
+{
+   Pawn before;
+   Pawn after;
+};
+
 /// Start of Pawn class implementation ////////////////////////////////////////
 
 Pawn::Pawn()
@@ -157,7 +165,6 @@ Pawn::Pawn( const char& t, const short& row, const short& col, const short& play
     x      = col;
     y      = row;
     player = playerNr;
-
     if(type == 'X' || type == 'O')
         queen = true;
 }
@@ -175,14 +182,12 @@ void Pawn::setValues( const char& t, const short& row, const short& col)
 {
     type = t;
     setCoordinates(row, col);
-
     if(type == 'x' || type == 'X')
         player = 1;
     else if(type == 'o' || type == 'O')
         player = 2;
     else
         player = 0;
-
     if(type == 'X' || type == 'O')
         queen = true;
     else
@@ -230,16 +235,15 @@ bool Pawn::isQueen() const
 {
     if( queen )
         return true;
-
     return false;
 }
 
-short Pawn::getX() const
+short Pawn::getCol() const
 {
     return x;
 }
 
-short Pawn::getY() const
+short Pawn::getRow() const
 {
     return y;
 }
@@ -254,15 +258,24 @@ short Pawn::getPlayer() const
     return player;
 }
 
-Pawn Pawn::operator = ( const Pawn& p)
+Pawn Pawn::operator = ( const Pawn& p )
 {
     type   = p.type;
     queen  = p.queen;
     player = p.player;
-
     return *this;
 }
 
+bool Pawn::operator == ( const Pawn& p )
+{
+    if( this->getType() == p.getType() &&
+        this->getRow() == p.getRow() &&
+        this->getCol() == p.getCol() &&
+        this->getPlayer() == p.getPlayer()
+      )
+        return true;
+    return false;
+}
 /// End of Pawn class implementation //////////////////////////////////////////
 
 /// Start Board class implementation //////////////////////////////////////////
@@ -273,7 +286,6 @@ Board::Board()
         for( short j = 0; j < COLS; ++j )
             board[ i ][ j ].setValues( 'e', i, j );
     updatePieceLeft();
-
     head = nullptr;
     eval = evalutation();
 }
@@ -284,7 +296,6 @@ Board::Board( char b[ROWS][COLS] )
         for( short j = 0; j < COLS; ++j )
             board[ i ][ j ].setValues( b[ i ][ j ], i, j );
     updatePieceLeft();
-
     head = nullptr;
     eval = evalutation();
 }
@@ -294,7 +305,6 @@ Board::Board( Board& source )
     for( short i = ( ROWS - 1 ); i >= 0; --i )
         for( short j = 0; j < COLS; ++j )
             board[ i ][ j ].setValues(source.getPawn(i, j).getType(), i, j );
-
     updatePieceLeft();
     head = nullptr;
     eval = evalutation();
@@ -305,12 +315,11 @@ Board& Board::operator=( const Board& b )
     for(short i(ROWS - 1); i >= 0; --i)
         for(short j(0); j < COLS; ++j)
             board[i][j].setValues(b.board[i][j].getType(), i, j);
-    eval = b.eval;
+    eval  = b.eval;
     xLeft = b.xLeft;
     oLeft = b.oLeft;
     xKing = b.xKing;
     oKing = b.oKing;
-
     return *this;
 }
 
@@ -326,7 +335,6 @@ void Board::printBoard()
     {
          for( short j = 0; j < COLS; ++j )
             board[ i ][ j ].getType() == 'e' ? cout << ' ' :  cout << board[ i ][ j ].getType();
-
          cout << endl;
     }
     cout << "---------------\n"<< endl;
@@ -335,12 +343,23 @@ void Board::printBoard()
 void Board::move(Pawn& piece,short row, short col)
 {
     Pawn support(board[row][col]);
-
     board[row][col] = piece;
     piece = support;
-
     if( row == (ROWS - 1) || row == 0 )
         board[row][col].setQueen();
+}
+
+short Board::countDamaSpot(short num)
+{
+    short res = 0;
+    int row;
+    char type;
+    num == 1 ? row = 7 : row = 0;
+    row == 0 ? type = 'O' : type = 'X';
+    for(int i = 0; i < COLS; i++)
+        if(board[row][i].getType() == type)
+            ++res;
+    return res;
 }
 
 void Board::updatePieceLeft()
@@ -356,26 +375,22 @@ void Board::updatePieceLeft()
                 case 'x':
                      ++xLeft;
                      break;
-                case 'X':
-                    ++xKing;
-                    break;
-
                 case 'o':
                     ++oLeft;
+                    break;
+                case 'X':
+                    ++xKing;
                     break;
                 case 'O':
                     ++oKing;
                     break;
-
                 case 'e':
                     break;
-
                 default:
                     throw player_exception { player_exception::missing_file, "Invalid character in board loaded!!..." };
             }
         }
     }
-
     if( ( ( xLeft + xKing ) + ( oLeft + oKing ) ) > MPED )
         throw player_exception { player_exception::invalid_board, "To many pieces in the loaded board!!..." };
 }
@@ -396,15 +411,25 @@ void Board::append( BoardList& cell, const Board& moved )
         append( cell->nextMove, moved );
 }
 
+short Board::getOKing()
+{
+    return oKing;
+}
+
+short Board::getXKing()
+{
+    return xKing;
+}
+
 short Board::getXLeft()
 {
-    return xLeft;
+    return xLeft + xKing;
 }
 
 
 short Board::getOLeft()
 {
-    return oLeft;
+    return oLeft + oKing;
 }
 
 short Board::wins()
@@ -413,14 +438,13 @@ short Board::wins()
         return 1;
     else if( ( xLeft + xKing ) == 0 )
         return 2;
-
     return 0;
 }
 
 float Board::evalutation()
 {
   float mult = 0.5f;
-  float res = ( ( float )oLeft - ( float )xLeft + ( oKing * mult - xKing * mult ) );
+  float res = (  ( float )xLeft - ( float )oLeft + ( oKing * mult - xKing * mult ) );
   return res;
 }
 
@@ -439,12 +463,11 @@ void Board::traverseRight( short start, short stop, short step, const Pawn& pawn
     {
         if( right >= COLS )
             break;
-
         Pawn current = getPawn( row, right );
         if( current.getType() == 'e' && !blocked )
         {
             Board choice = *this;
-            choice.move( choice.getPawn( pawn.getY(), pawn.getX()), current.getY(), current.getX() );
+            choice.move( choice.getPawn( pawn.getRow(), pawn.getCol()), current.getRow(), current.getCol() );
             if( eatable )
             {
                 choice.getPawn( lastPos.first, lastPos.second ).deletePawn();
@@ -458,10 +481,9 @@ void Board::traverseRight( short start, short stop, short step, const Pawn& pawn
         else
         {
             eatable = true;
-            lastPos.first = current.getY();
-            lastPos.second = current.getX();
+            lastPos.first = current.getRow();
+            lastPos.second = current.getCol();
         }
-
         right = (short)(right + 2);
     }
 }
@@ -471,19 +493,15 @@ void Board::traverseLeft( short start, short stop, short step, const Pawn& pawn,
     bool eatable = false;
     bool moved   = false;
     bool blocked = false;
-
     for( short row = start; row < ROWS && row != stop && !moved; row = (short)( row + step ) )
     {
         if( left < 0 )
             break;
-
         Pawn current = getPawn( row, left );
         if( current.getType() == 'e' && !blocked )
         {
             Board choice = *this;
-            // cout << "SIZE: " << sizeof( choice ) << endl;
-            choice.move( choice.getPawn( pawn.getY(), pawn.getX() ), current.getY(), current.getX() );
-
+            choice.move( choice.getPawn( pawn.getRow(), pawn.getCol() ), current.getRow(), current.getCol() );
             if( eatable )
             {
                 choice.getPawn( lastPos.first, lastPos.second ).deletePawn();
@@ -497,20 +515,18 @@ void Board::traverseLeft( short start, short stop, short step, const Pawn& pawn,
         else
         {
             eatable = true;
-            lastPos.first = current.getY();
-            lastPos.second = current.getX();
+            lastPos.first = current.getRow();
+            lastPos.second = current.getCol();
         }
-
-        left = ( short )( left + 2 );
+        left = ( short )( left - 2 );
     }
 }
 
 void Board::getValidMoves( Pawn& p )
 {
-    short   left  = (short)(p.getX() - 2);
-    short   right = (short)(p.getX() + 2);
-    short   row   = p.getY();
-
+    short   left  = (short)(p.getCol() - 2);
+    short   right = (short)(p.getCol() + 2);
+    short   row   = p.getRow();
     if( p.getType() == 'x' || p.isQueen() )
     {
         traverseLeft ( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, left,  std::pair<short, short>( 0, 0 ) );
@@ -538,12 +554,11 @@ float Board::getScore()
 
 void Board::destroy( BoardList& cell ) const
 {
-    if( cell->nextMove != nullptr )
-        destroy( cell->nextMove );
-    else if(cell->movedBoard.head)
-        destroy( cell->movedBoard.head );
-    else
+    if(cell)
+    {
+        destroy(cell->nextMove);
         delete cell;
+    }
 }
 
 
@@ -554,9 +569,8 @@ void Board::destroy( BoardList& cell ) const
 Player::Player( int player_nr )
 {
     if( player_nr != 1 && player_nr != 2 ) throw player_exception{ player_exception::index_out_of_bounds, "player_nr is neither player1 or player2 in Player constructor!!" };
-    pimpl = new Impl;
-
-    pimpl->nPLayer              = (short) player_nr;
+    pimpl                       = new Impl;
+    pimpl->player_num           = (short) player_nr;
     pimpl->head                 = nullptr;
     pimpl->tail                 = nullptr;
     pimpl->garbageCollector     = nullptr;
@@ -582,21 +596,18 @@ Player& Player::operator = ( const Player& pl )
         pimpl = new Impl;
         pimpl->destroy( pimpl->head );
         Pcell moveMe = pl.pimpl->head;
-
         while( moveMe != nullptr )
         {
             this->pimpl->append( pimpl->copy( moveMe ) );
             moveMe = moveMe->next;
         }
     }
-
     return *this;
 }
 
 void Player::init_board( const string& filename ) const
 {
     ofstream initFile;
-
     initFile.open( filename );
     for( short rows = 0; ( initFile.good() ) && ( rows < ROWS ); ++rows )
     {
@@ -621,14 +632,12 @@ void Player::init_board( const string& filename ) const
 void Player::load_board( const string &filename )
 {
     ifstream loadFile;
-
     loadFile.open( filename );
     if( !loadFile.is_open() ) throw player_exception{ player_exception::missing_file, "Missing file in load_board() func!!..." };
-
     char supportBoard[ROWS][COLS];
     string str;
     Pcell newPcell = new Cell;
-    short i = ( ROWS - 1 );
+    short i        = ( ROWS - 1 );
     while( getline( loadFile, str ) )
     {
         if( str.length() != 15 ) throw player_exception { player_exception::missing_file, "Invalid length in load_board() func..." };
@@ -636,41 +645,118 @@ void Player::load_board( const string &filename )
         {
             if( (char)str.at( j ) == ' ')
                 str.at( j ) = 'e';
-
             supportBoard[ i ][ j ] = (char)str.at( j );
         }
-
         --i;
     }
     loadFile.close();
-
     Board sup(supportBoard);
     newPcell->b = sup;
     newPcell->b.updatePieceLeft();
+    if(!pimpl->validBoard( newPcell ) || newPcell->b.getXLeft() > 12 || newPcell->b.getOLeft() > 12 )
+    {
+        cout << "Bro Massa pezzi!!" << endl;
+        exit(0);
+    }
+    pimpl->append( newPcell );
+    valid_move() == true ? cout << "MOSSA VALIDA\n" : cout << "MOSSA NON VALIDA\n";
+    // pimpl->tail->b.printBoard();
+}
 
-    if( pimpl->validBoard( newPcell ) )
-        pimpl->append( newPcell );
+bool Player::valid_move() const
+{
+    if(!pimpl->tail->prev)
+        return true;
+
+    // Caso in cui non ci siano nuove dame, controllo solo il percorso delle pedine
+    short diff = 0;
+    Prediction difference[4];
+    for(int i = 0; i < ROWS && diff < 4; i++)
+    {
+        for(int j = 0; j < COLS; j++)
+        {            // se il pezzo in (i, j) nella board attuale != dal pezzo in (i, j) nella board precedente
+            if(pimpl->tail->b.getPawn(i, j).getType() != pimpl->tail->prev->b.getPawn(i, j).getType())
+            {
+                difference[diff].before = pimpl->tail->prev->b.getPawn(i, j);
+                difference[diff].before.setCoordinates(i, j);
+                difference[diff].after = pimpl->tail->b.getPawn(i, j);
+                difference[diff++].after.setCoordinates(i,j);
+            }
+        }
+    }
+    if(diff < 2 || diff > 3)
+          return false;
+
+    // cout << "Parola di cristo" << endl;
+    // for(int i = 0; i < 4; i++)
+    //     cout << "B: " << difference[i].before.getType() << "\tX: " << difference[i].before.getCol() << "\tY: " << difference[i].before.getRow()
+    //          << "\nA: " << difference[i].after.getType() << "\tX: " << difference[i].after.getCol() << "\tY: " << difference[i].after.getRow()
+    //          << endl;
+
+    // Dentro il nostro array abbiamo tutte le differenze nelle due ultime boards
+    // Trovo il/i pezzo/i che si sono mossi -> escludo le 'e'
+    // lancio getValidMoves moves sul pezzo della board precedente e verifico la presenza della
+    // mossa che risiede in after della board successiva
+    if(diff == 2)
+    {
+        Pawn p { difference[0].before.getType() != 'e' ? difference[0].before : difference[1].before };
+        Pawn x { difference[1].after.getType() != 'e' ? difference[1].after : difference[0].after };
+        // cout << "PREV " << p.getType() << '\t' << p.getRow() << ',' << p.getCol() << endl;
+        // cout << "NEXT " << x.getType() << '\t' << x.getRow() << ',' << x.getCol() << endl;
+        Pcell pc { pimpl->tail->prev };
+        pc->b.getValidMoves(p);
+        auto moveMe = pc->b.head;
+        while(moveMe != nullptr)
+        {
+            if(moveMe->movedBoard.getPawn(x.getRow(), x.getCol()) == x)
+            {
+                pc->b.destroy(pc->b.head);
+                return true;
+            }
+            moveMe = moveMe->nextMove;
+        }
+        pc->b.destroy(pc->b.head);
+        return false;
+    }
+    else
+    {
+        Pawn p { difference[0].before.getType() != 'e' ? difference[0].before : difference[2].before };
+        Pawn x { difference[2].after.getType() != 'e' ? difference[2].after : difference[0].after };
+        // cout << "PREV " << p.getType() << '\t' << p.getRow() << ',' << p.getCol() << endl;
+        // cout << "NEXT " << x.getType() << '\t' << x.getRow() << ',' << x.getCol() << endl;
+        Pcell pc { pimpl->tail->prev };
+        pc->b.getValidMoves(p);
+        auto moveMe = pc->b.head;
+        while(moveMe != nullptr)
+        {
+            if(moveMe->movedBoard.getPawn(x.getRow(), x.getCol()) == x)
+            {
+                pc->b.destroy(pc->b.head);
+                return true;
+            }
+            moveMe = moveMe->nextMove;
+        }
+        pc->b.destroy(pc->b.head);
+        return false;
+    }
+    return false;
 }
 
 void Player::move()
 {
     Pboard bestMove(nullptr);
-    pimpl->garbageCollector = nullptr;
+    pimpl->garbageCollector     = nullptr;
     pimpl->garbageCollectorHead = nullptr;
     pimpl->garbageCollectorTail = nullptr;
-
-    if( pimpl->nPLayer == 1 )
-       bestMove =  pimpl->minimax( &pimpl->tail->b, 8, true, MINF, PINF );
+    if( pimpl->player_num == 1 )
+       bestMove =  pimpl->minimax( &pimpl->tail->b, 4, true, MINF, PINF );
     else
-        bestMove = pimpl->minimax( &pimpl->tail->b, 8, false, MINF, PINF );
+        bestMove = pimpl->minimax( &pimpl->tail->b, 4, false, MINF, PINF );
     bestMove->printBoard();
-
     Pcell ciao = new Cell;
-
     ciao->b = *bestMove;
     pimpl->validBoard( ciao );
     pimpl->append( ciao );
-
     if( pimpl->garbageCollector != nullptr )
         pimpl->destroyBin(pimpl->garbageCollector);
 }
@@ -678,15 +764,12 @@ void Player::move()
 void Player::store_board( const string &filename, int history_offset ) const
 {
     Pcell moveMe = pimpl->bringPcell( history_offset );
-
     ofstream outputFile;
     outputFile.open( filename );
-
     for( short i = ( ROWS - 1 ); i >= 0; --i )
     {
         for( short j = 0; j < COLS; ++j )
             moveMe->b.getPawn(i, j).getType() == 'e' ? outputFile << ' ' : outputFile << moveMe->b.getPawn(i, j).getType();
-
         if( i > 0 )
             outputFile << endl;
     }
@@ -696,7 +779,6 @@ void Player::store_board( const string &filename, int history_offset ) const
 Player::piece Player::operator()( int r, int c, int history_offset ) const
 {
     if( ( r < 0 || r > 7 ) || ( c < 0 || c > 14) ) throw player_exception { player_exception::index_out_of_bounds, "Wrong coordinates... out of range in operator() func..." };
-
     Pcell moveMe = pimpl->bringPcell( history_offset );
     return pimpl->findEnum( moveMe->b.getPawn( (short)r, (short)c ).getType());
 }
@@ -704,12 +786,11 @@ Player::piece Player::operator()( int r, int c, int history_offset ) const
 void Player::pop()
 {
     if( !pimpl->head ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in pop() func..."};
-
     if( pimpl->tail->prev )
     {
         Pcell prevTail = pimpl->tail->prev;
         pimpl->destroy( pimpl->tail );
-        pimpl->tail = prevTail;
+        pimpl->tail    = prevTail;
         prevTail->next = nullptr;
     }
     else
@@ -723,12 +804,10 @@ void Player::pop()
 int Player::recurrence() const
 {
     if( pimpl->tail == nullptr ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in recurrence() func..." };
-
-    short counter = 1;
-    bool different;
+    bool  different;
+    short counter   = 1;
     Pcell reference = pimpl->tail;
-    Pcell moveMe = pimpl->tail->prev;
-
+    Pcell moveMe    = pimpl->tail->prev;
     while( moveMe != nullptr )
     {
         different = false;
@@ -736,21 +815,36 @@ int Player::recurrence() const
             for( short j = 0; j < COLS && !different; ++j )
                 if( reference->b.getPawn(i, j).getType() != moveMe->b.getPawn(i, j).getType())
                     different = true;
-
         if( !different )
             ++counter;
-
         moveMe = moveMe->prev;
     }
-
     return counter;
 }
 
 bool Player::wins( int player_nr ) const
 {
     if( pimpl->tail == nullptr || ( player_nr != 1 && player_nr != 2 ) ) throw player_exception { player_exception::index_out_of_bounds, "player_nr is neither 1 or 2, or empty history in wins() func..." };
-    cout << player_nr << endl;
-    return true;
+    if(pimpl->tail->b.wins() == player_nr)
+        return true;
+    return false;
+}
+
+bool Player::wins() const
+{
+    return wins(pimpl->player_num);
+}
+
+bool Player::loses( int player_nr ) const
+{
+    if(player_nr == 1)
+        return wins(2);
+    return wins(1);
+}
+
+bool Player::loses() const
+{
+    return loses(pimpl->player_num);
 }
 
 /// End of Player Implementation //////////////////////////////////////////////
@@ -765,24 +859,19 @@ Player::piece Player::Impl::findEnum( const char &c )
         case 'x':
             p = Player::x;
             break;
-
         case 'o':
             p = Player::o;
             break;
-
         case 'e':
             p = Player::e;
             break;
-
         case 'X':
             p = Player::X;
             break;
-
         case 'O':
             p = Player::O;
             break;
     }
-
     return p;
 }
 
@@ -808,11 +897,9 @@ void Player::Impl::printBoard( const Pcell& printCell )
     {
          for( short j = 0; j < COLS; ++j )
             printCell->b.getPawn(i, j).getType() == 'e' ? cout << ' ' : cout <<  printCell->b.getPawn(i, j).getType();
-
          cout << endl;
     }
     cout << "---------------\n"<< endl;
-
     printMemBoard( printCell );
 }
 
@@ -855,14 +942,12 @@ Pcell Player::Impl::bringPcell( const int& history_offset )
 {
     short history = 0;
     Pcell moveMe = this->tail;
-
     while( ( moveMe->prev != nullptr ) && ( history != history_offset ) )
     {
         moveMe = moveMe->prev;
         ++history;
     }
     if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size!..." };
-
     return moveMe;
 }
 
@@ -879,25 +964,23 @@ void Player::Impl::append( Pcell newPcell )
 {
     if( head == nullptr )
     {
-        head = newPcell;
-        tail = newPcell;
+        head           = newPcell;
+        tail           = newPcell;
         newPcell->prev = nullptr;
     }
     else
     {
-        tail->next = newPcell;
+        tail->next     = newPcell;
         newPcell->prev = tail;
-        tail = newPcell;
+        tail           = newPcell;
     }
-
     newPcell->next = nullptr;
 }
 
 Pcell Player::Impl::copy( Pcell& node )
 {
     Pcell storeMe = new Cell;
-    storeMe->b = node->b;
-
+    storeMe->b    = node->b;
     return storeMe;
 }
 
@@ -905,7 +988,6 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
 {
     if(depth == 0 || base->wins() != 0)
         return base;
-
     if( maxPg )
     {
         Pboard eval(nullptr);
@@ -913,9 +995,7 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
         BoardList bestMove(nullptr);
         base->getAllMoves(1);
         BoardList move = base->head;
-
         appendToBin(base->head);
-
         for( ; move != nullptr; move = move->nextMove )
         {
             eval = minimax( &move->movedBoard, (short)( depth - 1 ), false, alpha, beta );
@@ -925,7 +1005,6 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
                 alpha = std::max( alpha, maxEval );
                 if (beta <= alpha)
                     break;
-
                 if( maxEval == eval->getScore() )
                 {
                     bestMove = move;
@@ -944,13 +1023,10 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
         float minEval = PINF;
         base->getAllMoves(2);
         BoardList move = base->head;
-
         appendToBin(base->head);
-
         for(;move != nullptr; move = move->nextMove)
         {
             eval = minimax( &move->movedBoard, (short )( depth - 1 ), true, alpha, beta );
-
             if( eval )
             {
                 minEval = std::min( minEval, eval->getScore() );
@@ -962,19 +1038,15 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
                     bestMove = move;
                     bestMove->movedBoard.setScore(eval->getScore());
                 }
-
             }
-
         }
         if( bestMove == nullptr )
             return base;
-
         return &bestMove->movedBoard;
     }
 }
 
 /// End of Impl implementation ////////////////////////////////////////////////
-///
 void Player::Impl::appendToBin( BoardList& cell )
 {
     if(garbageCollector == nullptr)
@@ -1010,7 +1082,6 @@ void Player::Impl::destroyBin( Pbin bin )
     {
         if( bin->head )
             destroyTrash( bin->head );
-
         destroyBin( bin->nextTrash );
         delete bin;
     }

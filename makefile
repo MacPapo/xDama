@@ -2,10 +2,10 @@
 
 UNAME:=$(shell uname)
 
-
 # Declaring the compiler flags for debug and errors
-CFLAGS=-std=c++14 -mcpu=apple-m1 -O3
-# -g -pedantic -Wall -Wextra -Werror -Wshadow -Wconversion -Wunreachable-code
+CFLAGS=-std=c++14   -O3 -g
+# -pedantic -Wall -Wextra -Werror -Wshadow -Wconversion -Wunreachable-code
+# -mcpu=apple-m1
 # MacOS flags
 ifeq ($(UNAME), Darwin)
 	CC=c++
@@ -26,8 +26,7 @@ BIN=$(BINDIR)/xDama
 SRCS=$(wildcard $(SRC)/*.cpp)
 OBJS=$(patsubst $(SRC)/%.cpp, $(OBJ)/%.o, $(SRCS))
 
-all: clean $(BIN)
-# valgrind
+all:  $(BIN)  valgrind
 
 $(BIN): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@
@@ -38,8 +37,8 @@ $(OBJ)/%.o: $(SRC)/%.cpp
 clean:
 	$(RM) -r $(BINDIR)/* $(OBJ)/* $(BOARDS)/*
 
- # valgrind:
- # 	 	valgrind --leak-check=full --show-leak-kinds=all -s --track-origins=yes --log-file=valgrind-out.txt ./bin/xDama 1
+ valgrind:
+	 	valgrind --leak-check=full --show-leak-kinds=all -s --track-origins=yes --log-file=valgrind-out.txt ./bin/xDama 1
 
 fly:
 	./$(BIN) 1
