@@ -3,8 +3,7 @@
 UNAME:=$(shell uname)
 
 # Declaring the compiler flags for debug and errors
-CFLAGS=-std=c++14   -O3 -g
-# -pedantic -Wall -Wextra -Werror -Wshadow -Wconversion -Wunreachable-code
+CFLAGS=-std=c++14 -O3 -g -pedantic -Wall -Wextra -Werror -Wshadow -Wconversion -Wunreachable-code
 # -mcpu=apple-m1
 # MacOS flags
 ifeq ($(UNAME), Darwin)
@@ -26,7 +25,7 @@ BIN=$(BINDIR)/xDama
 SRCS=$(wildcard $(SRC)/*.cpp)
 OBJS=$(patsubst $(SRC)/%.cpp, $(OBJ)/%.o, $(SRCS))
 
-all:  $(BIN)  valgrind
+all:  $(BIN) valgrind
 
 $(BIN): $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) -o $@
