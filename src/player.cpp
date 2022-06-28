@@ -137,9 +137,9 @@ typedef Board* Pboard;
 // Struct cell for lists
 struct Cell
 {
-    Board b;
-    struct Cell* next;
-    struct Cell* prev;
+    Board board;
+    Cell* next;
+    Cell* prev;
 };
 typedef Cell* Pcell;
 
@@ -152,7 +152,9 @@ struct Bcell
 struct Bin
 {
     Blist head;
-    Bin* nextTrash;
+    Bin* next;
+
+    void destroy( Blist& ) const;
 };
 
 // Impl Definition
@@ -176,7 +178,7 @@ struct Player::Impl
     void   append( Pcell );
     Pcell  copy( Pcell& );
 
-    Pcell  shearch_history( const int& );
+    Pcell  search_history( const int& );
 
     bool verify_board( Pcell& );
 
@@ -189,9 +191,8 @@ struct Player::Impl
     Pbin garbageCollectorTail;
 
     // Utility funcs for Helper list
-    void appendToBin( Blist& );
-    void destroyBin( Pbin );
-    void destroyTrash( Blist );
+    void collect_pointer( Blist& );
+    void remove_pointers( Pbin );
 };
 
 struct Prediction
@@ -614,29 +615,25 @@ float Board::get_score()
     return score;
 }
 
-// Segnalibro
-void Board::destroy( Blist& cell ) const
+void Board::destroy( Blist& board_ptr ) const
 {
-    if(cell)
+    if( board_ptr )
     {
-        destroy(cell->next);
-        delete cell;
+        destroy( board_ptr->next );
+        delete board_ptr;
     }
 }
-
-
-/// End Board class implementation ////////////////////////////////////////////
-
-/// Player class implementation ///////////////////////////////////////////////
 
 Player::Player( int player_nr )
 {
     if( player_nr != 1 && player_nr != 2 ) throw player_exception{ player_exception::index_out_of_bounds, "player_nr is neither player1 or player2 in Player constructor!!" };
-    pimpl                       = new Impl;
-    pimpl->num           = (short) player_nr;
-    selected_player             = (short)player_nr;
-    pimpl->head                 = nullptr;
-    pimpl->tail                 = nullptr;
+
+    pimpl           = new Impl;
+    pimpl->head     = nullptr;
+    pimpl->tail     = nullptr;
+    pimpl->num      = (short) player_nr;
+    selected_player = pimpl->num;
+
     pimpl->garbageCollector     = nullptr;
     pimpl->garbageCollectorHead = nullptr;
     pimpl->garbageCollectorTail = nullptr;
@@ -653,19 +650,21 @@ Player::Player( const Player& p )
     *this = p;
 }
 
-Player& Player::operator = ( const Player& pl )
+Player& Player::operator = ( const Player& player )
 {
-    if( this != &pl )
+    if( this != &player )
     {
         pimpl = new Impl;
         pimpl->destroy( pimpl->head );
-        Pcell moveMe = pl.pimpl->head;
-        while( moveMe != nullptr )
+
+        Pcell move_me = player.pimpl->head;
+        while( move_me != nullptr )
         {
-            this->pimpl->append( pimpl->copy( moveMe ) );
-            moveMe = moveMe->next;
+            pimpl->append( pimpl->copy( move_me ) );
+            move_me = move_me->next;
         }
     }
+
     return *this;
 }
 
@@ -673,9 +672,10 @@ void Player::init_board( const string& filename ) const
 {
     ofstream initFile;
     initFile.open( filename );
-    for( short rows = 0; ( initFile.good() ) && ( rows < ROWS ); ++rows )
+
+    for( short rows( 0 ); ( initFile.good() ) && ( rows < ROWS ); rows++ )
     {
-        for( short cols = 0; cols < COLS; ++cols )
+        for( short cols ( 0 ); cols < COLS; cols++ )
         {
             if( rows == 3 || rows == 4 )
                 initFile << ' ';
@@ -693,56 +693,56 @@ void Player::init_board( const string& filename ) const
 }
 
 
-void Player::load_board( const string &filename )
+void Player::load_board( const string& filename )
 {
     ifstream loadFile;
     loadFile.open( filename );
     if( !loadFile.is_open() ) throw player_exception{ player_exception::missing_file, "Missing file in load_board() func!!..." };
-    char supportBoard[ROWS][COLS];
+
+    char char_board[ROWS][COLS];
     string str;
-    Pcell newPcell = new Cell;
-    short i        = ( ROWS - 1 );
+    Pcell cell_ptr = new Cell;
+
+    short i ( ROWS - 1 );
+
     while( getline( loadFile, str ) )
     {
         if( str.length() != 15 ) throw player_exception { player_exception::invalid_board, "Invalid length in load_board() func..." };
-        for( size_t j = 0; j < COLS; ++j )
+        for( size_t j( 0 ); j < COLS; j++ )
         {
             if( (char)str.at( j ) == ' ')
                 str.at( j ) = 'e';
-            supportBoard[ i ][ j ] = (char)str.at( j );
+            char_board[ i ][ j ] = (char)str.at( j );
         }
-        --i;
+        i--;
     }
     loadFile.close();
-    Board sup(supportBoard);
-    newPcell->b = sup;
-    newPcell->b.update_pieces();
-    if(!pimpl->verify_board( newPcell ) || newPcell->b.get_xleft() > 12 || newPcell->b.get_oleft() > 12 ) throw player_exception { player_exception::invalid_board, "Invalid Board in load_board() func..." };
-    pimpl->append( newPcell );
+
+    Board new_board( char_board );
+
+    cell_ptr->board = new_board;
+    cell_ptr->board.update_pieces();
+
+    if( !pimpl->verify_board( cell_ptr ) || ( cell_ptr->board.get_oleft() > 12 ) || ( cell_ptr->board.get_xleft() > 12 )  ) throw player_exception { player_exception::invalid_board, "Invalid Board in load_board() func..." };
+    pimpl->append( cell_ptr );
 }
 
 bool Player::valid_move() const
 {
-    if(!pimpl->tail->prev) throw player_exception { player_exception::index_out_of_bounds, "Too few boards in History in valid_move() func..." };
+if(!pimpl->tail->prev) throw player_exception { player_exception::index_out_of_bounds, "Too few boards in History in valid_move() func..." };
 
     // Catch dama
-    short damaXCounterBef = pimpl->tail->prev->b.dama_counter(1);
-    short damaXCounterAft = pimpl->tail->b.dama_counter(1);
-    short damaOCounterBef = pimpl->tail->prev->b.dama_counter(2);
-    short damaOCounterAft = pimpl->tail->b.dama_counter(2);
+    short history_xqueen = pimpl->tail->prev->board.dama_counter(1);
+    short current_xqueen = pimpl->tail->board.dama_counter(1);
+    short history_oqueen = pimpl->tail->prev->board.dama_counter(2);
+    short current_oqeen = pimpl->tail->board.dama_counter(2);
 
-    cout << "DXB: " << damaXCounterBef << endl
-         << "DXA: " << damaXCounterAft << endl
-         << "DOB: " << damaOCounterBef << endl
-         << "DOA: " << damaOCounterAft << endl;
-
-    if(damaXCounterBef == -1 || damaXCounterAft == -1 || damaOCounterBef == -1 || damaOCounterAft == -1)
+    if(history_xqueen == -1 || current_xqueen == -1 || history_oqueen == -1 || current_oqeen == -1)
         return false;
-    if(damaXCounterAft - damaXCounterBef > 1)
+    if(current_xqueen - history_xqueen > 1)
         return false;
-    if(damaOCounterAft - damaOCounterBef > 1)
+    if(current_oqeen - history_oqueen > 1)
         return false;
-    // end catch
 
     short diff = 0;
     Prediction difference[4];
@@ -750,11 +750,11 @@ bool Player::valid_move() const
     {
         for(short j = 0; j < COLS; j++)
         {
-            if(pimpl->tail->b.at(i, j).get_type() != pimpl->tail->prev->b.at(i, j).get_type())
+            if(pimpl->tail->board.at(i, j).get_type() != pimpl->tail->prev->board.at(i, j).get_type())
             {
-                difference[diff].before = pimpl->tail->prev->b.at(i, j);
+                difference[diff].before = pimpl->tail->prev->board.at(i, j);
                 difference[diff].before.set_coordinates(i, j);
-                difference[diff].after = pimpl->tail->b.at(i, j);
+                difference[diff].after = pimpl->tail->board.at(i, j);
                 difference[diff++].after.set_coordinates(i,j);
             }
         }
@@ -762,46 +762,46 @@ bool Player::valid_move() const
     if(diff < 2 || diff > 3)
         return false;
 
-    if(diff == 2)
-    {
-        Pawn pr { difference[0].before.get_type() != 'e' ? difference[0].before : difference[1].before };
-        Pawn af { difference[1].after.get_type() != 'e' ? difference[1].after : difference[0].after };
+    Pcell cell_ptr { pimpl->tail->prev };
+    Blist move_me  = nullptr;
+    cell_ptr->board.head = nullptr;
 
-        Pcell pc { pimpl->tail->prev };
-        pc->b.head = nullptr;
-        pc->b.get_valid_moves(pr);
-        auto moveMe = pc->b.head;
-        while(moveMe != nullptr)
+    if( diff == 2 )
+    {
+        Pawn history_pawn { difference[0].before.get_type() != 'e' ? difference[0].before : difference[1].before };
+        Pawn current_pawn { difference[1].after.get_type()  != 'e' ? difference[1].after : difference[0].after };
+
+        cell_ptr->board.get_valid_moves( history_pawn );
+        move_me = cell_ptr->board.head;
+        while( move_me )
         {
-            if(moveMe->current.at(af.get_row(), af.get_col()) == af)
+            if( move_me->current.at( current_pawn.get_row(), current_pawn.get_col() ) == current_pawn )
             {
-                pc->b.destroy(pc->b.head);
+                cell_ptr->board.destroy( cell_ptr->board.head );
                 return true;
             }
-            moveMe = moveMe->next;
+            move_me = move_me->next;
         }
-        pc->b.destroy(pc->b.head);
+        cell_ptr->board.destroy( cell_ptr->board.head );
         return false;
     }
     else
     {
-        Pawn pr { difference[0].before.get_type() != 'e' ? difference[0].before : difference[2].before };
-        Pawn af { difference[2].after.get_type() != 'e' ? difference[2].after : difference[0].after };
+        Pawn history_pawn { difference[0].before.get_type() != 'e' ? difference[0].before : difference[2].before };
+        Pawn current_pawn { difference[2].after.get_type()  != 'e' ? difference[2].after : difference[0].after };
 
-        Pcell pc { pimpl->tail->prev };
-        pc->b.head = nullptr;
-        pc->b.get_valid_moves(pr);
-        auto moveMe = pc->b.head;
-        while(moveMe != nullptr)
+        cell_ptr->board.get_valid_moves( history_pawn );
+        move_me = cell_ptr->board.head;
+        while( move_me )
         {
-            if(moveMe->current.at(af.get_row(), af.get_col()) == af)
+            if( move_me->current.at( current_pawn.get_row(), current_pawn.get_col() ) == current_pawn )
             {
-                pc->b.destroy(pc->b.head);
+                cell_ptr->board.destroy(cell_ptr->board.head);
                 return true;
             }
-            moveMe = moveMe->next;
+            move_me = move_me->next;
         }
-        pc->b.destroy(pc->b.head);
+        cell_ptr->board.destroy(cell_ptr->board.head);
         return false;
     }
     return false;
@@ -809,7 +809,7 @@ bool Player::valid_move() const
 
 void Player::move()
 {
-    if(!pimpl->head) throw player_exception { player_exception::index_out_of_bounds, "Empty History in move() func..." };
+    if( !pimpl->head ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in move() func..." };
 
     Pboard bestMove(nullptr);
 
@@ -817,27 +817,27 @@ void Player::move()
     pimpl->garbageCollectorHead = nullptr;
     pimpl->garbageCollectorTail = nullptr;
 
-    bestMove =  pimpl->minimax( &pimpl->tail->b, 4, true, MINF, PINF );
+    bestMove =  pimpl->minimax( &pimpl->tail->board, 4, true, MINF, PINF );
     bestMove->print_board();
 
     Pcell new_cell = new Cell;
-    new_cell->b = *bestMove;
+    new_cell->board = *bestMove;
     pimpl->verify_board( new_cell );
     pimpl->append( new_cell );
 
     if( pimpl->garbageCollector != nullptr )
-        pimpl->destroyBin(pimpl->garbageCollector);
+        pimpl->remove_pointers(pimpl->garbageCollector);
 }
 
 void Player::store_board( const string &filename, int history_offset ) const
 {
-    Pcell moveMe = pimpl->shearch_history( history_offset );
+    Pcell move_me = pimpl->search_history( history_offset );
     ofstream outputFile;
     outputFile.open( filename );
     for( short i = ( ROWS - 1 ); i >= 0; --i )
     {
         for( short j = 0; j < COLS; ++j )
-            moveMe->b.at(i, j).get_type() == 'e' ? outputFile << ' ' : outputFile << moveMe->b.at(i, j).get_type();
+            move_me->board.at(i, j).get_type() == 'e' ? outputFile << ' ' : outputFile << move_me->board.at(i, j).get_type();
         if( i > 0 )
             outputFile << endl;
     }
@@ -847,19 +847,21 @@ void Player::store_board( const string &filename, int history_offset ) const
 Player::piece Player::operator()( int r, int c, int history_offset ) const
 {
     if( ( r < 0 || r > 7 ) || ( c < 0 || c > 14) ) throw player_exception { player_exception::index_out_of_bounds, "Wrong coordinates... out of range in operator() func..." };
-    Pcell moveMe = pimpl->shearch_history( history_offset );
-    return pimpl->select_enum( moveMe->b.at( (short)r, (short)c ).get_type());
+    Pcell move_me = pimpl->search_history( history_offset );
+    return pimpl->select_enum( move_me->board.at( (short)r, (short)c ).get_type());
 }
 
 void Player::pop()
 {
     if( !pimpl->head ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in pop() func..."};
+
     if( pimpl->tail->prev )
     {
-        Pcell prevTail = pimpl->tail->prev;
+        Pcell temp_tail = pimpl->tail->prev;
         pimpl->destroy( pimpl->tail );
-        pimpl->tail    = prevTail;
-        prevTail->next = nullptr;
+
+        pimpl->tail     = temp_tail;
+        temp_tail->next = nullptr;
     }
     else
     {
@@ -872,52 +874,62 @@ void Player::pop()
 int Player::recurrence() const
 {
     if( pimpl->tail == nullptr ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in recurrence() func..." };
-    bool  different;
+
+    bool  is_different;
     short counter   = 1;
     Pcell reference = pimpl->tail;
-    Pcell moveMe    = pimpl->tail->prev;
-    while( moveMe != nullptr )
+    Pcell move_me    = pimpl->tail->prev;
+
+    short i( ROWS - 1 );
+    short j( 0 );
+    while( move_me )
     {
-        different = false;
-        for( short i = ( ROWS - 1 ); i >= 0 && !different; --i )
-            for( short j = 0; j < COLS && !different; ++j )
-                if( reference->b.at(i, j).get_type() != moveMe->b.at(i, j).get_type())
-                    different = true;
-        if( !different )
-            ++counter;
-        moveMe = moveMe->prev;
+        is_different = false;
+        while( i >= 0 && !is_different )
+        {
+            while( j < COLS && !is_different )
+            {
+                if( move_me->board.at(i, j).get_type() != reference->board.at(i, j).get_type())
+                    is_different = true;
+                j++;
+            }
+            j = 0;
+            i--;
+        }
+        if( !is_different )
+            counter++;
+        i = ( ROWS - 1 );
+        move_me = move_me->prev;
     }
+
     return counter;
 }
 
 bool Player::wins( int player_nr ) const
 {
     if( pimpl->tail == nullptr ) throw player_exception { player_exception::index_out_of_bounds, "Empty history in wins() or loses() func..." };
-    if(pimpl->tail->b.wins() == player_nr)
+    if( pimpl->tail->board.wins() == player_nr )
         return true;
     return false;
 }
 
 bool Player::wins() const
 {
-    return wins(pimpl->num);
+    return wins( pimpl->num );
 }
 
 bool Player::loses( int player_nr ) const
 {
-    if(player_nr == 1)
-        return wins(2);
-    return wins(1);
+    short choice = 0;
+
+    player_nr == 1 ? choice = 2 : choice = 1;
+    return wins( choice );
 }
 
 bool Player::loses() const
 {
-    return loses(pimpl->num);
+    return loses( pimpl->num );
 }
-
-/// End of Player Implementation //////////////////////////////////////////////
-
-/// Impl struct implementation ////////////////////////////////////////////////
 
 Player::piece Player::Impl::select_enum( const char& c )
 {
@@ -948,42 +960,49 @@ Player::piece Player::Impl::select_enum( const char& c )
 
 bool Player::Impl::verify_board( Pcell& node )
 {
-    for( short i = ( ROWS - 1 ); i >= 0; --i )
+    short i( ROWS - 1 );
+    short j( 0 );
+    while( i >= 0 )
     {
-        for( short j = 0; j < COLS; ++j )
+        while( j < COLS )
         {
-            if( ( i % 2 == 1 ) && ( j % 4 != 0 ) && node->b.at(i, j).get_type() != 'e' )
+            if( ( i % 2 == 1 ) && ( j % 4 != 0 ) && node->board.at(i, j).get_type() != 'e' )
                 throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
-            else if( ( i % 2 == 0 ) && ( (j - 2) % 4 != 0 ) && node->b.at(i, j).get_type() != 'e' )
+            else if( ( i % 2 == 0 ) && ( (j - 2) % 4 != 0 ) && node->board.at(i, j).get_type() != 'e' )
                 throw player_exception { player_exception::missing_file, "Invalid piece position in board loaded!!..." };
+            j++;
         }
+        j = 0;
+        i--;
     }
     return true;
 }
 
+// DELETE ME
 void Player::Impl::print_board( const Pcell& printCell )
 {
     cout << "---------------"<< endl;
     for( short i = ( ROWS - 1 ); i >= 0; --i )
     {
          for( short j = 0; j < COLS; ++j )
-            printCell->b.at(i, j).get_type() == 'e' ? cout << ' ' : cout <<  printCell->b.at(i, j).get_type();
+            printCell->board.at(i, j).get_type() == 'e' ? cout << ' ' : cout <<  printCell->board.at(i, j).get_type();
          cout << endl;
     }
     cout << "---------------\n"<< endl;
 }
 
-Pcell Player::Impl::shearch_history( const int& history_offset )
+Pcell Player::Impl::search_history( const int& history_offset )
 {
-    short history = 0;
-    Pcell moveMe = this->tail;
-    while( ( moveMe->prev != nullptr ) && ( history != history_offset ) )
+    Pcell move_me = this->tail;
+    short history( 0 );
+
+    while( ( history != history_offset ) && ( move_me->prev != nullptr ) )
     {
-        moveMe = moveMe->prev;
-        ++history;
+        move_me = move_me->prev;
+        history++;
     }
     if( history_offset > history ) throw player_exception { player_exception::index_out_of_bounds, "History offset greater than history size!..." };
-    return moveMe;
+    return move_me;
 }
 
 void Player::Impl::destroy( Pcell& node ) const
@@ -995,28 +1014,29 @@ void Player::Impl::destroy( Pcell& node ) const
     }
 }
 
-void Player::Impl::append( Pcell newPcell )
+void Player::Impl::append( Pcell cell_ptr )
 {
     if( head == nullptr )
     {
-        head           = newPcell;
-        tail           = newPcell;
-        newPcell->prev = nullptr;
+        head           = cell_ptr;
+        tail           = cell_ptr;
+        cell_ptr->prev = nullptr;
     }
     else
     {
-        tail->next     = newPcell;
-        newPcell->prev = tail;
-        tail           = newPcell;
+        tail->next     = cell_ptr;
+        cell_ptr->prev = tail;
+        tail           = cell_ptr;
     }
-    newPcell->next = nullptr;
+    cell_ptr->next = nullptr;
 }
 
-Pcell Player::Impl::copy( Pcell& node )
+Pcell Player::Impl::copy( Pcell& copy_node )
 {
-    Pcell storeMe = new Cell;
-    storeMe->b    = node->b;
-    return storeMe;
+    Pcell cell_ptr  = new Cell;
+    cell_ptr->board = copy_node->board;
+
+    return cell_ptr;
 }
 
 Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float alpha, float beta )
@@ -1030,7 +1050,7 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
         Blist bestMove(nullptr);
         base->get_all_moves(num);
         Blist move = base->head;
-        appendToBin(base->head);
+        collect_pointer(base->head);
         for( ; move != nullptr; move = move->next )
         {
             eval = minimax( &move->current, (short)( depth - 1 ), false, alpha, beta );
@@ -1058,7 +1078,7 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
         float minEval = PINF;
         num == 2 ? base->get_all_moves(2) : base->get_all_moves(1);
         Blist move = base->head;
-        appendToBin(base->head);
+        collect_pointer(base->head);
         for(;move != nullptr; move = move->next)
         {
             eval = minimax( &move->current, (short )( depth - 1 ), true, alpha, beta );
@@ -1081,43 +1101,46 @@ Pboard Player::Impl::minimax( const Pboard& base, short depth, bool maxPg, float
     }
 }
 
-/// End of Impl implementation ////////////////////////////////////////////////
-void Player::Impl::appendToBin( Blist& cell )
+void Bin::destroy( Blist& board_ptr ) const
 {
-    if(garbageCollector == nullptr)
+    if( board_ptr )
+    {
+        destroy( board_ptr->next );
+        delete board_ptr;
+    }
+}
+
+void Player::Impl::collect_pointer( Blist& cell )
+{
+    if( !garbageCollector )
     {
         garbageCollector                = new Bin;
         garbageCollector->head          = cell;
         garbageCollectorHead            = garbageCollector;
         garbageCollectorTail            = garbageCollector;
-        garbageCollectorTail->nextTrash = nullptr;
+        garbageCollectorTail->next = nullptr;
     }
     else
     {
         Bin* newTrash        = new Bin;
         newTrash->head       = cell;
-        newTrash->nextTrash  = garbageCollectorHead;
+        newTrash->next  = garbageCollectorHead;
         garbageCollectorHead = newTrash;
         garbageCollector     = garbageCollectorHead;
     }
 }
 
-void Player::Impl::destroyTrash( Blist trashHead )
-{
-    if( trashHead )
-    {
-        destroyTrash( trashHead->next );
-        delete trashHead;
-    }
-}
 
-void Player::Impl::destroyBin( Pbin bin )
+void Player::Impl::remove_pointers( Pbin pointer_list )
 {
-    if( bin )
+    if( pointer_list )
     {
-        if( bin->head )
-            destroyTrash( bin->head );
-        destroyBin( bin->nextTrash );
-        delete bin;
+        if( pointer_list->head )
+        {
+            pointer_list->destroy( pointer_list->head );
+        }
+
+        remove_pointers( pointer_list->next );
+        delete pointer_list;
     }
 }
