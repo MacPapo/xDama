@@ -25,6 +25,12 @@ typedef Bcell* Blist;
 struct Bin;
 typedef Bin* Pbin;
 
+struct Pair
+{
+    short x;
+    short y;
+};
+
 short selected_player;
 
 // Class Pawn definition
@@ -98,8 +104,7 @@ class Board
         Pawn& at( short, short );
         const Pawn  at( short, short ) const;
 
-        void   traverse_left( short, short, short, const Pawn&, short, std::pair< short, short> );
-        void   traverse_right( short, short, short, const Pawn&, short, std::pair< short, short> );
+        void   diagonals( short, short, short, const Pawn&, short, bool, Pair );
 
         // Win utility
         short  wins();
@@ -312,6 +317,8 @@ Pawn Pawn::operator=( const Pawn& copy_pawn )
     player = copy_pawn.player;
     queen  = copy_pawn.queen;
     type   = copy_pawn.type;
+    x      = copy_pawn.x;
+    y      = copy_pawn.y;
     return *this;
 }
 
@@ -492,121 +499,114 @@ short Board::get_oleft()
     return (short)(oleft + oqueen);
 }
 
-// SEGNALIBRO
 short Board::wins()
 {
-    if( ( oleft + oqueen ) == 0 )
-        return 1;
-    else if( ( xleft + xqueen ) == 0 )
-        return 2;
-    return 0;
+    short win( 0 );
+    short opieces = (short)( oleft + oqueen );
+    short xpieces = (short)( xleft + xqueen );
+
+    if( opieces && xpieces )
+      return win;
+    xleft == 0 ? win = 2 : win = 1;
+    return win;
 }
 
 float Board::eval_board()
 {
-  float mult = 0.5f;
-  float res;
-  selected_player == 1 ? res = (  ( float )xleft - ( float )oleft + (  xqueen * mult - oqueen * mult ) ) : res = (  ( float )oleft - ( float )xleft + (  oqueen * mult - xqueen * mult ) );
-  return res;
+    float res( 0 );
+    float mult = 0.5f;
+    selected_player == 1 ? res = (  ( float )xleft - ( float )oleft + (  xqueen * mult - oqueen * mult ) ) : res = (  ( float )oleft - ( float )xleft + (  oqueen * mult - xqueen * mult ) );
+    return res;
 }
 
-void Board::set_score( float n )
+void Board::set_score( float num )
 {
-    score = n;
+    score = num;
 }
 
-void Board::traverse_right( short start, short stop, short step, const Pawn& pawn, short right,  std::pair< short, short > lastPos )
+void Board::diagonals( short start, short stop, short step, const Pawn& selected_pawn, short dir, bool is_right, Pair prev_coordinates )
 {
-    bool eatable = false;
-    bool moved   = false;
-    bool blocked = false;
+    bool is_eatable( false );
+    bool pawn_moved( false );
+    bool is_movable( true );
 
-    for( short row = start; row < ROWS && row != stop && !moved; row = (short)(row + step) )
+    short row( start );
+    Pawn current;
+    Board choice;
+    short inc( 0 );
+    is_right ? inc = 2 : inc = ( -2 );
+
+    while( row < ROWS && row != stop && !pawn_moved )
     {
-        if( right >= COLS )
+        if( ( is_right && dir >= COLS ) || ( !is_right && dir < 0 ) )
             break;
-        Pawn current = this->at( row, right );
-        if( current.get_type() == 'e' && !blocked )
+        current = this->at( row, dir );
+
+        if( ( current.is_queen() && selected_pawn.is_queen() ) || ( current.get_player() == selected_pawn.get_player() ) )
         {
-            Board choice = *this;
-            choice.move_piece( choice.at( pawn.get_row(), pawn.get_col()), current.get_row(), current.get_col() );
-            if( eatable )
+            is_movable = false;
+        }
+        if( current.get_type() == 'e' && is_movable )
+        {
+            choice = *this;
+            choice.move_piece( choice.at( selected_pawn.get_row(), selected_pawn.get_col() ), current.get_row(), current.get_col() );
+            if( is_eatable )
             {
-                choice.at( lastPos.first, lastPos.second ).del_pawn();
+                choice.at( prev_coordinates.y, prev_coordinates.x ).del_pawn();
                 choice.update_pieces();
             }
             append( head, choice );
-            moved = true;
+            pawn_moved = true;
         }
-        else if( current.get_player() == pawn.get_player() || ( current.is_queen() && !pawn.is_queen() ) )
-            blocked = true;
         else
         {
-            eatable = true;
-            lastPos.first = current.get_row();
-            lastPos.second = current.get_col();
+            is_eatable = true;
+            prev_coordinates.y = current.get_row();
+            prev_coordinates.x = current.get_col();
         }
-        right = (short)(right + 2);
-    }
-}
 
-void Board::traverse_left( short start, short stop, short step, const Pawn& pawn, short left, std::pair< short, short > lastPos )
-{
-    bool eatable = false;
-    bool moved   = false;
-    bool blocked = false;
-    for( short row = start; row < ROWS && row != stop && !moved; row = (short)( row + step ) )
-    {
-        if( left < 0 )
-            break;
-        Pawn current = this->at( row, left );
-        if( current.get_type() == 'e' && !blocked )
-        {
-            Board choice = *this;
-            choice.move_piece( choice.at( pawn.get_row(), pawn.get_col() ), current.get_row(), current.get_col() );
-            if( eatable )
-            {
-                choice.at( lastPos.first, lastPos.second ).del_pawn();
-                choice.update_pieces();
-            }
-            append( head, choice );
-            moved = true ;
-        }
-        else if( ( current.get_player() == pawn.get_player() ) || ( current.is_queen() && !pawn.is_queen() ) )
-            blocked = true;
-        else
-        {
-            eatable = true;
-            lastPos.first = current.get_row();
-            lastPos.second = current.get_col();
-        }
-        left = ( short )( left - 2 );
+        dir += inc;
+        row += step;
     }
 }
 
 void Board::get_valid_moves( Pawn& p )
 {
-    short   left  = (short)(p.get_col() - 2);
-    short   right = (short)(p.get_col() + 2);
+    short   left_side  = (short)(p.get_col() - 2);
+    short   right_side = (short)(p.get_col() + 2);
     short   row   = p.get_row();
+    Pair    pos{ 0, 0 };
     if( p.get_type() == 'x' || p.is_queen() )
     {
-        traverse_left ( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, left,  std::pair<short, short>( 0, 0 ) );
-        traverse_right( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, right, std::pair<short, short>( 0, 0 ) );
+        // left
+        diagonals( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, left_side, false,  pos );
+        // right
+        diagonals( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, right_side, true, pos );
     }
     if( p.get_type() == 'o' || p.is_queen() )
     {
-        traverse_left ( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, left,  std::pair<short, short>( 0, 0 ) );
-        traverse_right( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, right, std::pair<short, short>( 0, 0 ) );
+        // left
+        diagonals( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, left_side, false,  pos );
+        // right
+        diagonals( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, right_side, true, pos );
     }
 }
 
-void Board::get_all_moves( short player )
+void Board::get_all_moves( short owner )
 {
-    for(short i(ROWS - 1); i >= 0; --i)
-        for(short j(0); j < COLS; ++j)
-            if( board[i][j].get_player() == player )
-                get_valid_moves( board[ i ][ j ] );
+    short i( 0 );
+    short j( 0 );
+    while( i < ROWS )
+    {
+        while( j < COLS)
+        {
+            if( owner == this->at( i, j ).get_player() )
+                get_valid_moves( this->at( i, j ) );
+            j++;
+        }
+        j = 0;
+        i++;
+    }
 }
 
 float Board::get_score()
@@ -614,6 +614,7 @@ float Board::get_score()
     return score;
 }
 
+// Segnalibro
 void Board::destroy( Blist& cell ) const
 {
     if(cell)

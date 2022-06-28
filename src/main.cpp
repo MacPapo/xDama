@@ -13,7 +13,7 @@ int main(int argc, char **argv) {
   try {
     Player p(2);
 
-    int round = 12;
+    int round = 22;
     string board_name;
     board_name = "boards/board_" + to_string(round) + ".txt";
 

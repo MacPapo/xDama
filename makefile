@@ -3,7 +3,7 @@
 UNAME:=$(shell uname)
 
 # Declaring the compiler flags for debug and errors
-CFLAGS=-std=c++14 -O3 -g -pedantic -Wall -Wextra -Werror -Wshadow -Wconversion -Wunreachable-code
+CFLAGS=-std=c++14 -O3 -g -pedantic -Wall -Wextra -Werror -Wshadow -Wunreachable-code
 # -mcpu=apple-m1
 # MacOS flags
 ifeq ($(UNAME), Darwin)
