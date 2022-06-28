@@ -84,9 +84,6 @@ class Board
         // Operator
         Board& operator = ( const Board& );
 
-        // DELETE ME
-        void   print_board();
-
         // Getters
         short  get_xleft();
         short  get_oleft();
@@ -134,7 +131,6 @@ class Board
 };
 typedef Board* Pboard;
 
-// Struct cell for lists
 struct Cell
 {
     Board board;
@@ -159,7 +155,7 @@ struct Bin
     void append( const Pbin&, const Blist& );
 };
 
-// Impl Definition
+
 struct Player::Impl
 {
     // Player number
@@ -169,8 +165,6 @@ struct Player::Impl
     Pcell head;
     Pcell tail;
 
-    // DELETE ME
-    void   print_board( const Pcell& );
 
     // Select the right Enum
     piece  select_enum( const char& );
@@ -200,429 +194,6 @@ struct Prediction
     Pawn before;
     Pawn after;
 };
-
-/// Start of Pawn class implementation ////////////////////////////////////////
-
-Pawn::Pawn()
-{
-    type  = 'e';
-    queen = false;
-    x     = 0;
-    y     = 0;
-}
-
-Pawn::Pawn( const char& kind, const short& row, const short& col, const short& player_number )
-{
-    type   = kind;
-    player = player_number;
-    x      = col;
-    y      = row;
-
-    if( type == 'O' || type == 'X' )
-        queen = true;
-}
-
-Pawn::Pawn( const Pawn& copy_pawn )
-{
-    type   = copy_pawn.type;
-    queen  = copy_pawn.queen;
-    player = copy_pawn.player;
-    x      = copy_pawn.x;
-    y      = copy_pawn.y;
-}
-
-void Pawn::set_values( const char& kind, const short& row, const short& col )
-{
-    // Set the Ownership
-    if( kind == 'O' || kind == 'X' )
-    {
-        queen = true;
-        kind == 'X' ? player = 1 : player = 2;
-    }
-    else if( kind != 'e')
-    {
-        queen = false;
-        kind == 'x' ? player = 1 : player = 2;
-    }
-    else // 'e' case
-    {
-        queen = false;
-        player = 0;
-    }
-    set_coordinates( row, col );
-    type = kind;
-}
-
-void Pawn::del_pawn()
-{
-    player =  0;
-    type   = 'e';
-    queen  = false;
-}
-
-void Pawn::set_queen()
-{
-    if( queen == false )
-    {
-        type == 'o' ? type = 'O': type = 'X';
-        queen = true;
-    }
-}
-
-void Pawn::set_coordinates( const short& row, const short& col )
-{
-    if( verify_coordinates( row, col ) )
-    {
-        x = col;
-        y = row;
-    }
-}
-
-// CONTROLLAMI
-bool Pawn::verify_coordinates( short row, short col )
-{
-    bool is_inside_mat;
-    ( ( row >= 0 && row < ROWS ) && ( col >= 0 && col < COLS ) ) ? is_inside_mat = true : is_inside_mat = false;
-    return is_inside_mat;
-}
-
-bool Pawn::is_queen() const
-{
-    bool is_queen;
-    this->queen ? is_queen = true : is_queen = false;
-    return is_queen;
-}
-
-short Pawn::get_col() const
-{
-    return x;
-}
-
-short Pawn::get_row() const
-{
-    return y;
-}
-
-char Pawn::get_type() const
-{
-    return type;
-}
-
-short Pawn::get_player() const
-{
-    return player;
-}
-
-Pawn Pawn::operator=( const Pawn& copy_pawn )
-{
-    player = copy_pawn.player;
-    queen  = copy_pawn.queen;
-    type   = copy_pawn.type;
-    x      = copy_pawn.x;
-    y      = copy_pawn.y;
-    return *this;
-}
-
-bool Pawn::operator==( const Pawn& comp_pawn )
-{
-    bool is_equal;
-    type == comp_pawn.get_type() && y == comp_pawn.get_row() && x == comp_pawn.get_col() && player == comp_pawn.get_player() ? is_equal = true : is_equal = false;
-    return is_equal;
-}
-
-Board::Board()
-{
-    head = nullptr;
-    for( short i( 0 ); i < ROWS; i++ )
-    {
-        for( short j( 0 ); j < COLS; j++ )
-        {
-            this->at( i, j ).set_values( 'e', i, j );
-        }
-    }
-    update_pieces();
-    score = this->eval_board();
-}
-
-Board::Board( char copy_board[ ROWS ][ COLS ] )
-{
-    head = nullptr;
-    for( short i( 0 ); i < ROWS; i++ )
-    {
-        for( short j( 0 ); j < COLS; j++ )
-        {
-            this->at( i, j ).set_values( copy_board[ i ][ j ], i, j );
-        }
-    }
-    update_pieces();
-    score = this->eval_board();
-}
-
-Board::Board( Board& copy_board )
-{
-    head = nullptr;
-    for( short i( 0 ); i < ROWS; i++ )
-    {
-        for( short j( 0 ); j < COLS; j++ )
-        {
-            this->at( i, j ).set_values( copy_board.at( i, j ).get_type(), i, j );
-        }
-    }
-    update_pieces();
-    score = this->eval_board();
-}
-
-Pawn& Board::at( short row, short col )
-{
-    return board[ row ][ col ];
-}
-
-const Pawn Board::at( short row, short col ) const
-{
-    return board[ row ][ col ];
-}
-
-Board& Board::operator=( const Board& eq_board )
-{
-    xleft  = eq_board.xleft;
-    oleft  = eq_board.oleft;
-    xqueen = eq_board.xqueen;
-    oqueen = eq_board.oqueen;
-    score  = eq_board.score;
-    for( short i( 0 ); i < ROWS; i++ )
-    {
-        for( short j( 0 ); j < COLS; j++ )
-        {
-            this->at( i, j ).set_values( eq_board.at( i, j ).get_type(), i, j );
-        }
-    }
-    return *this;
-}
-
-void Board::print_board()
-{
-    cout << "---------------"<< endl;
-    for( short i = ( ROWS - 1 ); i >= 0; --i )
-    {
-         for( short j = 0; j < COLS; ++j )
-            board[ i ][ j ].get_type() == 'e' ? cout << ' ' :  cout << board[ i ][ j ].get_type();
-         cout << endl;
-    }
-    cout << "---------------\n"<< endl;
-}
-
-void Board::move_piece( Pawn& piece, short row, short col )
-{
-    std::swap( this->at( row, col ), piece );
-    if( row == 0 || row == ( ROWS - 1 ) )
-        this->at( row, col ).set_queen();
-}
-
-short Board::dama_counter( short num )
-{
-    char kind;
-    short res( 0 );
-    short row( 0 );
-
-    num == 1 ? row = 7 : row = 0;
-    row == 0 ? kind = 'O' : kind = 'X';
-
-    for( short i( 0 ); i < COLS; i++ )
-    {
-        if( this->at( row, i ).get_type() == kind )
-            ++res;
-        else
-        {
-            if( ( this->at( row, i ).get_type() == 'o' && row == 0 ) || ( this->at( row, i ).get_type() == 'x' && row == 7 ) )
-                return -1;
-        }
-    }
-    return res;
-}
-
-void Board::update_pieces()
-{
-    xleft = xqueen = 0;
-    oleft = oqueen = 0;
-
-    for( short i( 0 ); i < ROWS; i++ )
-    {
-        for( short j( 0 ); j < COLS; j++ )
-        {
-            switch ( this->at( i, j ).get_type() )
-            {
-                case 'x':
-                     ++xleft;
-                     break;
-                case 'o':
-                    ++oleft;
-                    break;
-                case 'X':
-                    ++xqueen;
-                    break;
-                case 'O':
-                    ++oqueen;
-                    break;
-                case 'e':
-                    break;
-                default:
-                    throw player_exception { player_exception::missing_file, "Invalid character in board loaded!!..." };
-            }
-        }
-    }
-    if( ( ( xleft + xqueen ) + ( oleft + oqueen ) ) > MPED ) throw player_exception { player_exception::invalid_board, "To many pieces in the loaded board!!..." };
-}
-
-void Board::prepend( Blist& list_head, const Board& curr_board )
-{
-    Blist new_cell    = new Bcell;
-    new_cell->current = curr_board;
-    new_cell->next    = list_head;
-    list_head         = new_cell;
-}
-
-void Board::append( Blist& list_head, const Board& curr_board )
-{
-    if( list_head )
-        append( list_head->next, curr_board );
-    else
-        prepend( list_head, curr_board );
-}
-
-short Board::get_xleft()
-{
-    return (short)(xleft + xqueen);
-}
-
-
-short Board::get_oleft()
-{
-    return (short)(oleft + oqueen);
-}
-
-short Board::wins()
-{
-    short win( 0 );
-    short opieces = (short)( oleft + oqueen );
-    short xpieces = (short)( xleft + xqueen );
-
-    if( opieces && xpieces )
-      return win;
-    xleft == 0 ? win = 2 : win = 1;
-    return win;
-}
-
-float Board::eval_board()
-{
-    float res( 0 );
-    float mult = 0.5f;
-    selected_player == 1 ? res = (  ( float )xleft - ( float )oleft + (  xqueen * mult - oqueen * mult ) ) : res = (  ( float )oleft - ( float )xleft + (  oqueen * mult - xqueen * mult ) );
-    return res;
-}
-
-void Board::set_score( float num )
-{
-    score = num;
-}
-
-void Board::diagonals( short start, short stop, short step, const Pawn& selected_pawn, short dir, bool is_right, Pair prev_coordinates )
-{
-    bool is_eatable( false );
-    bool pawn_moved( false );
-    bool is_movable( true );
-
-    short row( start );
-    Pawn current;
-    Board choice;
-    short inc( 0 );
-    is_right ? inc = 2 : inc = ( -2 );
-
-    while( row < ROWS && row != stop && !pawn_moved )
-    {
-        if( ( is_right && dir >= COLS ) || ( !is_right && dir < 0 ) )
-            break;
-        current = this->at( row, dir );
-
-        if( ( current.is_queen() && selected_pawn.is_queen() ) || ( current.get_player() == selected_pawn.get_player() ) )
-        {
-            is_movable = false;
-        }
-        if( current.get_type() == 'e' && is_movable )
-        {
-            choice = *this;
-            choice.move_piece( choice.at( selected_pawn.get_row(), selected_pawn.get_col() ), current.get_row(), current.get_col() );
-            if( is_eatable )
-            {
-                choice.at( prev_coordinates.y, prev_coordinates.x ).del_pawn();
-                choice.update_pieces();
-            }
-            append( head, choice );
-            pawn_moved = true;
-        }
-        else
-        {
-            is_eatable = true;
-            prev_coordinates.y = current.get_row();
-            prev_coordinates.x = current.get_col();
-        }
-
-        dir += inc;
-        row += step;
-    }
-}
-
-void Board::get_valid_moves( Pawn& p )
-{
-    short   left_side  = (short)(p.get_col() - 2);
-    short   right_side = (short)(p.get_col() + 2);
-    short   row   = p.get_row();
-    Pair    pos{ 0, 0 };
-    if( p.get_type() == 'x' || p.is_queen() )
-    {
-        // left
-        diagonals( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, left_side, false,  pos );
-        // right
-        diagonals( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, right_side, true, pos );
-    }
-    if( p.get_type() == 'o' || p.is_queen() )
-    {
-        // left
-        diagonals( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, left_side, false,  pos );
-        // right
-        diagonals( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, right_side, true, pos );
-    }
-}
-
-void Board::get_all_moves( short owner )
-{
-    short i( 0 );
-    short j( 0 );
-    while( i < ROWS )
-    {
-        while( j < COLS)
-        {
-            if( owner == this->at( i, j ).get_player() )
-                get_valid_moves( this->at( i, j ) );
-            j++;
-        }
-        j = 0;
-        i++;
-    }
-}
-
-float Board::get_score()
-{
-    return score;
-}
-
-void Board::destroy( Blist& board_ptr ) const
-{
-    if( board_ptr )
-    {
-        destroy( board_ptr->next );
-        delete board_ptr;
-    }
-}
 
 Player::Player( int player_nr )
 {
@@ -814,9 +385,6 @@ void Player::move()
 
     res_move = pimpl->minimax( &pimpl->tail->board, 4, true, MINF, PINF );
 
-    // DELETE ME
-    res_move->print_board();
-
     Pcell new_cell = new Cell;
     new_cell->board = *res_move;
     pimpl->verify_board( new_cell );
@@ -847,7 +415,7 @@ void Player::store_board( const string &filename, int history_offset ) const
         {
             output_file << endl;
         }
-        
+
         j = 0;
         i--;
     }
@@ -986,19 +554,6 @@ bool Player::Impl::verify_board( Pcell& node )
         i--;
     }
     return true;
-}
-
-// DELETE ME
-void Player::Impl::print_board( const Pcell& printCell )
-{
-    cout << "---------------"<< endl;
-    for( short i = ( ROWS - 1 ); i >= 0; --i )
-    {
-         for( short j = 0; j < COLS; ++j )
-            printCell->board.at(i, j).get_type() == 'e' ? cout << ' ' : cout <<  printCell->board.at(i, j).get_type();
-         cout << endl;
-    }
-    cout << "---------------\n"<< endl;
 }
 
 Pcell Player::Impl::search_history( const int& history_offset )
@@ -1166,5 +721,412 @@ void Player::Impl::remove_pointers( Pbin pointer_list )
 
         remove_pointers( pointer_list->next );
         delete pointer_list;
+    }
+}
+
+Pawn::Pawn()
+{
+    type  = 'e';
+    queen = false;
+    x     = 0;
+    y     = 0;
+}
+
+Pawn::Pawn( const char& kind, const short& row, const short& col, const short& player_number )
+{
+    type   = kind;
+    player = player_number;
+    x      = col;
+    y      = row;
+
+    if( type == 'O' || type == 'X' )
+        queen = true;
+}
+
+Pawn::Pawn( const Pawn& copy_pawn )
+{
+    type   = copy_pawn.type;
+    queen  = copy_pawn.queen;
+    player = copy_pawn.player;
+    x      = copy_pawn.x;
+    y      = copy_pawn.y;
+}
+
+void Pawn::set_values( const char& kind, const short& row, const short& col )
+{
+    // Set the Ownership
+    if( kind == 'O' || kind == 'X' )
+    {
+        queen = true;
+        kind == 'X' ? player = 1 : player = 2;
+    }
+    else if( kind != 'e')
+    {
+        queen = false;
+        kind == 'x' ? player = 1 : player = 2;
+    }
+    else // 'e' case
+    {
+        queen = false;
+        player = 0;
+    }
+    set_coordinates( row, col );
+    type = kind;
+}
+
+void Pawn::del_pawn()
+{
+    player =  0;
+    type   = 'e';
+    queen  = false;
+}
+
+void Pawn::set_queen()
+{
+    if( queen == false )
+    {
+        type == 'o' ? type = 'O': type = 'X';
+        queen = true;
+    }
+}
+
+void Pawn::set_coordinates( const short& row, const short& col )
+{
+    if( verify_coordinates( row, col ) )
+    {
+        x = col;
+        y = row;
+    }
+}
+
+bool Pawn::verify_coordinates( short row, short col )
+{
+    bool is_inside_mat;
+    ( ( row >= 0 && row < ROWS ) && ( col >= 0 && col < COLS ) ) ? is_inside_mat = true : is_inside_mat = false;
+    return is_inside_mat;
+}
+
+bool Pawn::is_queen() const
+{
+    bool is_queen;
+    this->queen ? is_queen = true : is_queen = false;
+    return is_queen;
+}
+
+short Pawn::get_col() const
+{
+    return x;
+}
+
+short Pawn::get_row() const
+{
+    return y;
+}
+
+char Pawn::get_type() const
+{
+    return type;
+}
+
+short Pawn::get_player() const
+{
+    return player;
+}
+
+Pawn Pawn::operator=( const Pawn& copy_pawn )
+{
+    player = copy_pawn.player;
+    queen  = copy_pawn.queen;
+    type   = copy_pawn.type;
+    x      = copy_pawn.x;
+    y      = copy_pawn.y;
+    return *this;
+}
+
+bool Pawn::operator==( const Pawn& comp_pawn )
+{
+    bool is_equal;
+    type == comp_pawn.get_type() && y == comp_pawn.get_row() && x == comp_pawn.get_col() && player == comp_pawn.get_player() ? is_equal = true : is_equal = false;
+    return is_equal;
+}
+
+Board::Board()
+{
+    head = nullptr;
+    for( short i( 0 ); i < ROWS; i++ )
+    {
+        for( short j( 0 ); j < COLS; j++ )
+        {
+            this->at( i, j ).set_values( 'e', i, j );
+        }
+    }
+    update_pieces();
+    score = this->eval_board();
+}
+
+Board::Board( char copy_board[ ROWS ][ COLS ] )
+{
+    head = nullptr;
+    for( short i( 0 ); i < ROWS; i++ )
+    {
+        for( short j( 0 ); j < COLS; j++ )
+        {
+            this->at( i, j ).set_values( copy_board[ i ][ j ], i, j );
+        }
+    }
+    update_pieces();
+    score = this->eval_board();
+}
+
+Board::Board( Board& copy_board )
+{
+    head = nullptr;
+    for( short i( 0 ); i < ROWS; i++ )
+    {
+        for( short j( 0 ); j < COLS; j++ )
+        {
+            this->at( i, j ).set_values( copy_board.at( i, j ).get_type(), i, j );
+        }
+    }
+    update_pieces();
+    score = this->eval_board();
+}
+
+Pawn& Board::at( short row, short col )
+{
+    return board[ row ][ col ];
+}
+
+const Pawn Board::at( short row, short col ) const
+{
+    return board[ row ][ col ];
+}
+
+Board& Board::operator=( const Board& eq_board )
+{
+    xleft  = eq_board.xleft;
+    oleft  = eq_board.oleft;
+    xqueen = eq_board.xqueen;
+    oqueen = eq_board.oqueen;
+    score  = eq_board.score;
+    for( short i( 0 ); i < ROWS; i++ )
+    {
+        for( short j( 0 ); j < COLS; j++ )
+        {
+            this->at( i, j ).set_values( eq_board.at( i, j ).get_type(), i, j );
+        }
+    }
+    return *this;
+}
+
+void Board::move_piece( Pawn& piece, short row, short col )
+{
+    std::swap( this->at( row, col ), piece );
+    if( row == 0 || row == ( ROWS - 1 ) )
+        this->at( row, col ).set_queen();
+}
+
+short Board::dama_counter( short num )
+{
+    char kind;
+    short res( 0 );
+    short row( 0 );
+
+    num == 1 ? row = 7 : row = 0;
+    row == 0 ? kind = 'O' : kind = 'X';
+
+    for( short i( 0 ); i < COLS; i++ )
+    {
+        if( this->at( row, i ).get_type() == kind )
+            ++res;
+        else
+        {
+            if( ( this->at( row, i ).get_type() == 'o' && row == 0 ) || ( this->at( row, i ).get_type() == 'x' && row == 7 ) )
+                return -1;
+        }
+    }
+    return res;
+}
+
+void Board::update_pieces()
+{
+    xleft = xqueen = 0;
+    oleft = oqueen = 0;
+
+    for( short i( 0 ); i < ROWS; i++ )
+    {
+        for( short j( 0 ); j < COLS; j++ )
+        {
+            switch ( this->at( i, j ).get_type() )
+            {
+                case 'x':
+                     ++xleft;
+                     break;
+                case 'o':
+                    ++oleft;
+                    break;
+                case 'X':
+                    ++xqueen;
+                    break;
+                case 'O':
+                    ++oqueen;
+                    break;
+                case 'e':
+                    break;
+                default:
+                    throw player_exception { player_exception::missing_file, "Invalid character in board loaded!!..." };
+            }
+        }
+    }
+    if( ( ( xleft + xqueen ) + ( oleft + oqueen ) ) > MPED ) throw player_exception { player_exception::invalid_board, "To many pieces in the loaded board!!..." };
+}
+
+void Board::prepend( Blist& list_head, const Board& curr_board )
+{
+    Blist new_cell    = new Bcell;
+    new_cell->current = curr_board;
+    new_cell->next    = list_head;
+    list_head         = new_cell;
+}
+
+void Board::append( Blist& list_head, const Board& curr_board )
+{
+    if( list_head )
+        append( list_head->next, curr_board );
+    else
+        prepend( list_head, curr_board );
+}
+
+short Board::get_xleft()
+{
+    return (short)(xleft + xqueen);
+}
+
+short Board::get_oleft()
+{
+    return (short)(oleft + oqueen);
+}
+
+short Board::wins()
+{
+    short win( 0 );
+    short opieces = (short)( oleft + oqueen );
+    short xpieces = (short)( xleft + xqueen );
+
+    if( opieces && xpieces )
+      return win;
+    xleft == 0 ? win = 2 : win = 1;
+    return win;
+}
+
+float Board::eval_board()
+{
+    float res( 0 );
+    float mult = 0.5f;
+    selected_player == 1 ? res = (  ( float )xleft - ( float )oleft + (  xqueen * mult - oqueen * mult ) ) : res = (  ( float )oleft - ( float )xleft + (  oqueen * mult - xqueen * mult ) );
+    return res;
+}
+
+void Board::set_score( float num )
+{
+    score = num;
+}
+
+void Board::diagonals( short start, short stop, short step, const Pawn& selected_pawn, short dir, bool is_right, Pair prev_coordinates )
+{
+    bool is_eatable( false );
+    bool pawn_moved( false );
+    bool is_movable( true );
+
+    short row( start );
+    Pawn current;
+    Board choice;
+    short inc( 0 );
+    is_right ? inc = 2 : inc = ( -2 );
+
+    while( row < ROWS && row != stop && !pawn_moved )
+    {
+        if( ( is_right && dir >= COLS ) || ( !is_right && dir < 0 ) )
+            break;
+        current = this->at( row, dir );
+
+        if( ( current.is_queen() && selected_pawn.is_queen() ) || ( current.get_player() == selected_pawn.get_player() ) )
+        {
+            is_movable = false;
+        }
+        if( current.get_type() == 'e' && is_movable )
+        {
+            choice = *this;
+            choice.move_piece( choice.at( selected_pawn.get_row(), selected_pawn.get_col() ), current.get_row(), current.get_col() );
+            if( is_eatable )
+            {
+                choice.at( prev_coordinates.y, prev_coordinates.x ).del_pawn();
+                choice.update_pieces();
+            }
+            append( head, choice );
+            pawn_moved = true;
+        }
+        else
+        {
+            is_eatable = true;
+            prev_coordinates.y = current.get_row();
+            prev_coordinates.x = current.get_col();
+        }
+
+        dir += inc;
+        row += step;
+    }
+}
+
+void Board::get_valid_moves( Pawn& p )
+{
+    short   left_side  = (short)(p.get_col() - 2);
+    short   right_side = (short)(p.get_col() + 2);
+    short   row   = p.get_row();
+    Pair    pos{ 0, 0 };
+    if( p.get_type() == 'x' || p.is_queen() )
+    {
+        // left
+        diagonals( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, left_side, false,  pos );
+        // right
+        diagonals( (short)(row + 1), (short)( std::max( row + 3, -1 ) ), 1, p, right_side, true, pos );
+    }
+    if( p.get_type() == 'o' || p.is_queen() )
+    {
+        // left
+        diagonals( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, left_side, false,  pos );
+        // right
+        diagonals( (short)(row - 1), (short)(std::max( row - 3, -1 ) ), -1, p, right_side, true, pos );
+    }
+}
+
+void Board::get_all_moves( short owner )
+{
+    short i( 0 );
+    short j( 0 );
+    while( i < ROWS )
+    {
+        while( j < COLS)
+        {
+            if( owner == this->at( i, j ).get_player() )
+                get_valid_moves( this->at( i, j ) );
+            j++;
+        }
+        j = 0;
+        i++;
+    }
+}
+
+float Board::get_score()
+{
+    return score;
+}
+
+void Board::destroy( Blist& board_ptr ) const
+{
+    if( board_ptr )
+    {
+        destroy( board_ptr->next );
+        delete board_ptr;
     }
 }
