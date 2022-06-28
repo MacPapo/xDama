@@ -11,9 +11,9 @@ int main(int argc, char **argv) {
        << endl;
 
   try {
-    Player p(2);
+    Player p(1);
 
-    int round = 22;
+    int round = 1;
     string board_name;
     board_name = "boards/board_" + to_string(round) + ".txt";
 
@@ -34,6 +34,7 @@ int main(int argc, char **argv) {
     p.store_board(board_name, 0);
     cout << "Board saved correctly!" << endl;
 
+    p.wins() ? cout <<  "P1 VINTO" << endl : cout << "NON VINTO" << endl;
     p.loses() ? cout <<  "P1 PERSO" << endl : cout << "NON PERSO" << endl;
 
   } catch (player_exception &pe) {

@@ -155,6 +155,8 @@ struct Bin
     Bin* next;
 
     void destroy( Blist& ) const;
+    void prepend( Pbin&, const Blist& );
+    void append( const Pbin&, const Blist& );
 };
 
 // Impl Definition
@@ -186,9 +188,7 @@ struct Player::Impl
     Pboard minimax( const Pboard&, short, bool, float, float );
 
     // Helper list for minimax algo
-    Pbin garbageCollector;
-    Pbin garbageCollectorHead;
-    Pbin garbageCollectorTail;
+    Pbin pointers_list;
 
     // Utility funcs for Helper list
     void collect_pointer( Blist& );
@@ -634,9 +634,7 @@ Player::Player( int player_nr )
     pimpl->num      = (short) player_nr;
     selected_player = pimpl->num;
 
-    pimpl->garbageCollector     = nullptr;
-    pimpl->garbageCollectorHead = nullptr;
-    pimpl->garbageCollectorTail = nullptr;
+    pimpl->pointers_list     = nullptr;
 }
 
 Player::~Player()
@@ -811,44 +809,56 @@ void Player::move()
 {
     if( !pimpl->head ) throw player_exception { player_exception::index_out_of_bounds, "Empty History in move() func..." };
 
-    Pboard bestMove(nullptr);
+    Pboard res_move( nullptr );
+    pimpl->pointers_list = nullptr;
 
-    pimpl->garbageCollector     = nullptr;
-    pimpl->garbageCollectorHead = nullptr;
-    pimpl->garbageCollectorTail = nullptr;
+    res_move = pimpl->minimax( &pimpl->tail->board, 4, true, MINF, PINF );
 
-    bestMove =  pimpl->minimax( &pimpl->tail->board, 4, true, MINF, PINF );
-    bestMove->print_board();
+    // DELETE ME
+    res_move->print_board();
 
     Pcell new_cell = new Cell;
-    new_cell->board = *bestMove;
+    new_cell->board = *res_move;
     pimpl->verify_board( new_cell );
     pimpl->append( new_cell );
 
-    if( pimpl->garbageCollector != nullptr )
-        pimpl->remove_pointers(pimpl->garbageCollector);
+    if( pimpl->pointers_list )
+    {
+        pimpl->remove_pointers( pimpl->pointers_list );
+    }
 }
 
 void Player::store_board( const string &filename, int history_offset ) const
 {
-    Pcell move_me = pimpl->search_history( history_offset );
-    ofstream outputFile;
-    outputFile.open( filename );
-    for( short i = ( ROWS - 1 ); i >= 0; --i )
+    Pcell move_me( pimpl->search_history( history_offset ) );
+    ofstream output_file;
+    output_file.open( filename );
+
+    short i( ROWS - 1 );
+    short j( 0 );
+    while( i >= 0 )
     {
-        for( short j = 0; j < COLS; ++j )
-            move_me->board.at(i, j).get_type() == 'e' ? outputFile << ' ' : outputFile << move_me->board.at(i, j).get_type();
+        while( j < COLS )
+        {
+            move_me->board.at(i, j).get_type() == 'e' ? output_file << ' ' : output_file << move_me->board.at(i, j).get_type();
+            j++;
+        }
         if( i > 0 )
-            outputFile << endl;
+        {
+            output_file << endl;
+        }
+        
+        j = 0;
+        i--;
     }
-    outputFile.close();
+    output_file.close();
 }
 
 Player::piece Player::operator()( int r, int c, int history_offset ) const
 {
     if( ( r < 0 || r > 7 ) || ( c < 0 || c > 14) ) throw player_exception { player_exception::index_out_of_bounds, "Wrong coordinates... out of range in operator() func..." };
     Pcell move_me = pimpl->search_history( history_offset );
-    return pimpl->select_enum( move_me->board.at( (short)r, (short)c ).get_type());
+    return pimpl->select_enum( move_me->board.at( (short)r, (short)c ).get_type() );
 }
 
 void Player::pop()
@@ -1110,23 +1120,37 @@ void Bin::destroy( Blist& board_ptr ) const
     }
 }
 
-void Player::Impl::collect_pointer( Blist& cell )
+void Bin::prepend( Pbin& list_head, const Blist& board_ptr )
 {
-    if( !garbageCollector )
+    Pbin new_bptr  = new Bin;
+    new_bptr->head = board_ptr;
+    new_bptr->next = nullptr;
+    list_head      = new_bptr;
+}
+
+void Bin::append( const Pbin& list_head, const Blist& board_ptr )
+{
+    Pbin new_bptr  = new Bin;
+    new_bptr->head = board_ptr;
+    new_bptr->next = nullptr;
+
+    Pbin move_me { list_head };
+    while( move_me->next )
     {
-        garbageCollector                = new Bin;
-        garbageCollector->head          = cell;
-        garbageCollectorHead            = garbageCollector;
-        garbageCollectorTail            = garbageCollector;
-        garbageCollectorTail->next = nullptr;
+        move_me = move_me->next;
+    }
+    move_me->next = new_bptr;
+}
+
+void Player::Impl::collect_pointer( Blist& board_ptr )
+{
+    if( !pointers_list )
+    {
+        pointers_list->prepend( pointers_list, board_ptr );
     }
     else
     {
-        Bin* newTrash        = new Bin;
-        newTrash->head       = cell;
-        newTrash->next  = garbageCollectorHead;
-        garbageCollectorHead = newTrash;
-        garbageCollector     = garbageCollectorHead;
+        pointers_list->append( pointers_list, board_ptr );
     }
 }
 
